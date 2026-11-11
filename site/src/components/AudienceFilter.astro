@@ -1,11 +1,12 @@
 ---
 // Фильтр «для кого» (FR-L10). Работает прямо в браузере: прячет карточки, которые не подходят.
 import { AUDIENCES } from "../config";
+import { HAS_AUDIENCE } from "../lib/articles";
 ---
-<div class="chips" data-audience-filter>
+{HAS_AUDIENCE && <div class="chips" data-audience-filter>
   <button class="chip" type="button" aria-pressed="true" data-value="">Всем</button>
   {AUDIENCES.map((a) => <button class="chip" type="button" aria-pressed="false" data-value={a.id}>{a.title}</button>)}
-</div>
+</div>}
 <script>
   document.querySelectorAll<HTMLElement>("[data-audience-filter]").forEach((box) => {
     const scope = box.parentElement ?? document;

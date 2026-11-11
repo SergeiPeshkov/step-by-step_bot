@@ -1,13 +1,13 @@
 // Карта сайта для Яндекса и других поисковиков.
 import type { APIContext } from "astro";
-import { ARTICLES, usedShelves } from "../lib/articles";
+import { ARTICLES, HAS_SHELVES, usedShelves } from "../lib/articles";
 import { RESERVED } from "../lib/reserved";
 
 export function GET({ site }: APIContext) {
   const u = (p: string) => new URL(p, site).href;
   const rows: { loc: string; lastmod?: string }[] = [
     { loc: u("") },
-    { loc: u("polka/") },
+    ...(HAS_SHELVES ? [{ loc: u("polka/") }] : []),
     { loc: u("izmeneniya/") },
     ...usedShelves().map((s) => ({ loc: u(`polka/${s.id}/`) })),
     ...ARTICLES.filter((a) => !RESERVED.has(a.slug)).map((a) => ({

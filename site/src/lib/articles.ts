@@ -98,15 +98,23 @@ export const ARTICLES: Article[] = list
   .map(normalize)
   .sort((x, y) => (y.publishedAt?.getTime() ?? 0) - (x.publishedAt?.getTime() ?? 0));
 
+// Полки и «для кого» необязательны: пока бот их не отдаёт, сайт их просто не показывает.
+export const HAS_SHELVES = ARTICLES.some((a) => a.shelf.id !== OTHER_SHELF.id);
+export const HAS_AUDIENCE = ARTICLES.some((a) => a.audience.length > 0);
+
 export const bySlug = (slug: string) => ARTICLES.find((a) => a.slug === slug) ?? null;
 
 export const onShelf = (shelfId: string) => ARTICLES.filter((a) => a.shelf.id === shelfId);
 
+// Похожие вопросы: с той же полки, а если полок нет — просто свежие вопросы.
 export function related(article: Article, limit = 4): Article[] {
-  return ARTICLES.filter((a) => a.shelf.id === article.shelf.id && a.slug !== article.slug && !a.replacedBy).slice(0, limit);
+  return ARTICLES.filter(
+    (a) => (!HAS_SHELVES || a.shelf.id === article.shelf.id) && a.slug !== article.slug && !a.replacedBy,
+  ).slice(0, limit);
 }
 
 export function usedShelves() {
+  if (!HAS_SHELVES) return [];
   const all = [...SHELVES, OTHER_SHELF];
   return all
     .map((s) => ({ ...s, count: onShelf(s.id).length }))

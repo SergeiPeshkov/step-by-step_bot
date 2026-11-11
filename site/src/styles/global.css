@@ -70,7 +70,8 @@ h2 { font-size: 1.3rem; }
   .site-head .wrap { gap: 4px 16px; padding-top: 8px; padding-bottom: 8px; }
   .nav { margin-left: 0; width: 100%; gap: 14px; overflow-x: auto; flex-wrap: nowrap; font-size: .9rem; padding-bottom: 2px; }
 }
-main.wrap { min-height: 60vh; }
+body { min-height: 100vh; display: flex; flex-direction: column; }
+main.wrap { flex: 1; width: 100%; }
 
 .btn {
   display: inline-block; background: var(--accent); color: var(--accent-ink); border: 0;

@@ -2,7 +2,7 @@
 // Страница вопроса (FR-L01–L08). Адрес и заголовок — сам вопрос.
 import Base from "../layouts/Base.astro";
 import Card from "../components/Card.astro";
-import { ARTICLES, audienceTitle, bySlug, formatDate, related, type Article } from "../lib/articles";
+import { ARTICLES, HAS_SHELVES, audienceTitle, bySlug, formatDate, related, type Article } from "../lib/articles";
 import { PLATFORM_LABEL, pickPlayer } from "../lib/video";
 import { RESERVED } from "../lib/reserved";
 import { SITE } from "../config";
@@ -37,8 +37,8 @@ const jsonLd: any[] = [
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: SITE.name, item: Astro.site?.href },
-      { "@type": "ListItem", position: 2, name: a.shelf.title, item: new URL(`polka/${a.shelf.id}/`, Astro.site).href },
-      { "@type": "ListItem", position: 3, name: a.title, item: pageUrl },
+      ...(HAS_SHELVES ? [{ "@type": "ListItem", position: 2, name: a.shelf.title, item: new URL(`polka/${a.shelf.id}/`, Astro.site).href }] : []),
+      { "@type": "ListItem", position: HAS_SHELVES ? 3 : 2, name: a.title, item: pageUrl },
     ],
   },
 ];
@@ -55,7 +55,7 @@ if (player) {
 }
 ---
 <Base title={a.title} description={description} jsonLd={jsonLd}>
-  <div class="crumbs"><a href={base}>Главная</a> › <a href={`${base}polka/${a.shelf.id}/`}>{a.shelf.title}</a></div>
+  <div class="crumbs"><a href={base}>Главная</a>{HAS_SHELVES && <> › <a href={`${base}polka/${a.shelf.id}/`}>{a.shelf.title}</a></>}</div>
 
   <div class={`layout ${player || a.videos.length ? "with-video" : ""}`}>
     {(player || a.videos.length > 0) && (
@@ -125,8 +125,8 @@ if (player) {
 
   {more.length > 0 && (
     <section>
-      <h2>Похожие вопросы с полки «{a.shelf.title}»</h2>
-      <div class="cards">{more.map((x) => <Card a={x} showShelf={false} />)}</div>
+      <h2>{HAS_SHELVES ? `Похожие вопросы с полки «${a.shelf.title}»` : "Другие вопросы"}</h2>
+      <div class="cards">{more.map((x) => <Card a={x} showShelf={!HAS_SHELVES} />)}</div>
     </section>
   )}
 </Base>

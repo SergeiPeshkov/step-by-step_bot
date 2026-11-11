@@ -7,7 +7,7 @@ export function GET() {
     s: a.slug,
     t: a.title,
     l: a.lead,
-    h: a.shelf.title,
+    h: a.shelf.id === "raznoe" ? "" : a.shelf.title,
     a: a.audience,
     x: [a.summary?.essence, a.summary?.todo, a.plain.slice(0, 3000)].filter(Boolean).join(" "),
     c: a.ruleChanged ? 1 : 0,

@@ -56,7 +56,7 @@ const base = import.meta.env.BASE_URL;
     status.textContent = hits.length ? `Нашлось: ${hits.length}` : "Ничего не нашлось.";
     nothing.hidden = hits.length > 2;
     out.innerHTML = hits
-      .map(({ d }) => `<a class="card" href="${base}${d.s}/"><div class="meta"><span class="tag">${esc(d.h)}</span></div><h3>${esc(d.t)}</h3><p>${esc(d.l || "")}</p></a>`)
+      .map(({ d }) => `<a class="card" href="${base}${d.s}/">${d.h ? `<div class="meta"><span class="tag">${esc(d.h)}</span></div>` : ""}<h3>${esc(d.t)}</h3><p>${esc(d.l || "")}</p></a>`)
       .join("");
   }
 

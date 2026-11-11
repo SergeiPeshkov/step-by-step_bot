@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import { SITE } from "../config";
+import { HAS_SHELVES } from "../lib/articles";
 
 interface Props {
   title: string;
@@ -37,7 +38,7 @@ const base = import.meta.env.BASE_URL;
       <div class="wrap">
         <a class="logo" href={base}><span class="logo-mark"><i></i><i></i><i></i></span>{SITE.name}</a>
         <nav class="nav">
-          <a href={`${base}polka/`}>Полки</a>
+          {HAS_SHELVES && <a href={`${base}polka/`}>Полки</a>}
           <a href={`${base}izmeneniya/`}>Что изменилось</a>
           <a href={`${base}poisk/`}>Поиск</a>
           <a href={`${base}predlozhit-temu/`}>Предложить тему</a>
