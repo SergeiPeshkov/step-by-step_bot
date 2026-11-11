@@ -1,0 +1,47 @@
+---
+import Base from "../layouts/Base.astro";
+import Card from "../components/Card.astro";
+import AudienceFilter from "../components/AudienceFilter.astro";
+import { ARTICLES, usedShelves } from "../lib/articles";
+import { shelfColor } from "../lib/shelfColor";
+import { SITE } from "../config";
+const base = import.meta.env.BASE_URL;
+const latest = ARTICLES.filter((a) => !a.replacedBy).slice(0, 12);
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE.name,
+  url: Astro.site?.href,
+  potentialAction: { "@type": "SearchAction", target: `${new URL("poisk/", Astro.site)}?q={q}`, "query-input": "required name=q" },
+};
+---
+<Base title={SITE.name} jsonLd={jsonLd}>
+  <section class="hero">
+    <h1>{SITE.name}</h1>
+    <p>{SITE.tagline}</p>
+    <form class="search" action={`${base}poisk/`} method="get" role="search">
+      <input name="q" type="search" placeholder="Опишите свой вопрос: например, «вычет за лечение»" aria-label="Опишите свой вопрос" />
+      <button class="btn" type="submit">Найти</button>
+    </form>
+  </section>
+
+  <h2>Полки</h2>
+  <div class="shelves">
+    {usedShelves().map((s) => (
+      <a class="shelf" href={`${base}polka/${s.id}/`} style={`--shelf-color:${shelfColor(s.id)}`}>
+        <b>{s.title}</b>
+        <small>{s.count ? `${s.count} — ` : ""}{s.hint}</small>
+      </a>
+    ))}
+  </div>
+
+  <section>
+    <h2>Новые вопросы</h2>
+    <AudienceFilter />
+    {latest.length ? (
+      <div class="cards">{latest.map((a) => <Card a={a} />)}</div>
+    ) : (
+      <p class="empty">Здесь появятся ролики, когда бот выгрузит первые статьи.</p>
+    )}
+  </section>
+</Base>

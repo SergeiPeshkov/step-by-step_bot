@@ -1,0 +1,71 @@
+---
+// Поиск «опишите свой вопрос» (FR-L11). Сейчас — поиск по словам прямо в браузере.
+// Позже сюда можно подключить ИИ, который подбирает ролики, но сам не отвечает.
+import Base from "../layouts/Base.astro";
+import { SITE } from "../config";
+const base = import.meta.env.BASE_URL;
+---
+<Base title="Поиск" description="Опишите свой вопрос своими словами — подберём подходящие ролики.">
+  <h1>Опишите свой вопрос</h1>
+  <form class="search" role="search" data-search-form>
+    <input name="q" type="search" placeholder="Например: «как вернуть налог за лечение зубов»" aria-label="Опишите свой вопрос" autofocus />
+    <button class="btn" type="submit">Найти</button>
+  </form>
+  <p class="note" data-status></p>
+  <div class="cards" data-results></div>
+  <p class="note" data-nothing hidden>
+    Не нашли ответа? <a href={`${base}predlozhit-temu/`}>Предложите тему</a> — самые популярные вопросы попадут в план роликов.
+  </p>
+</Base>
+
+<script define:vars={{ base }}>
+  // Простая «основа слова» для русского: отрезаем окончания, чтобы «вычет», «вычета», «вычеты» совпадали.
+  const ENDINGS = /(иями|ями|ами|иях|ого|ему|ыми|ими|ией|ия|ие|ий|ой|ый|ая|яя|ое|ее|ых|их|ом|ем|ам|ям|ах|ях|ов|ев|ей|ую|юю|ть|ся|сь|а|я|о|е|ы|и|у|ю|ь|й)$/;
+  const STOP = new Set("и в во на с со по за к ко от до из у о об а но или ли же не ни как что это мне меня мой моя я мы вы если чтобы для при про можно нужно надо ли".split(" "));
+  const stem = (w) => (w.length > 4 ? w.replace(ENDINGS, "") : w);
+  const words = (t) => (t.toLowerCase().replace(/ё/g, "е").match(/[a-zа-я0-9]+/g) || []).filter((w) => !STOP.has(w)).map(stem);
+
+  const form = document.querySelector("[data-search-form]");
+  const input = form.querySelector("input");
+  const out = document.querySelector("[data-results]");
+  const status = document.querySelector("[data-status]");
+  const nothing = document.querySelector("[data-nothing]");
+  let index = null;
+
+  async function load() {
+    if (index) return index;
+    const res = await fetch(`${base}search.json`);
+    const data = await res.json();
+    index = data.map((d) => ({ ...d, tw: new Set(words(d.t)), xw: new Set(words(`${d.l} ${d.h} ${d.x}`)) }));
+    return index;
+  }
+
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+  async function run(q) {
+    const qs = words(q);
+    out.innerHTML = "";
+    nothing.hidden = true;
+    if (!qs.length) { status.textContent = ""; return; }
+    const idx = await load();
+    const hits = idx
+      .map((d) => ({ d, score: qs.reduce((s, w) => s + (d.tw.has(w) ? 3 : 0) + (d.xw.has(w) ? 1 : 0), 0) - (d.c ? 0.5 : 0) }))
+      .filter((h) => h.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20);
+    status.textContent = hits.length ? `Нашлось: ${hits.length}` : "Ничего не нашлось.";
+    nothing.hidden = hits.length > 2;
+    out.innerHTML = hits
+      .map(({ d }) => `<a class="card" href="${base}${d.s}/"><div class="meta"><span class="tag">${esc(d.h)}</span></div><h3>${esc(d.t)}</h3><p>${esc(d.l || "")}</p></a>`)
+      .join("");
+  }
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const q = input.value.trim();
+    history.replaceState(null, "", q ? `?q=${encodeURIComponent(q)}` : location.pathname);
+    run(q);
+  });
+  const initial = new URLSearchParams(location.search).get("q");
+  if (initial) { input.value = initial; run(initial); }
+</script>

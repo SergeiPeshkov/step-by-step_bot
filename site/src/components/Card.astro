@@ -1,0 +1,18 @@
+---
+import type { Article } from "../lib/articles";
+import { audienceTitle, formatDate } from "../lib/articles";
+import { shelfColor } from "../lib/shelfColor";
+interface Props { a: Article; showShelf?: boolean }
+const { a, showShelf = true } = Astro.props;
+---
+<a class="card" href={`${import.meta.env.BASE_URL}${a.slug}/`} data-audience={a.audience.join(" ")} style={`--shelf-color:${shelfColor(a.shelf.id)}`}>
+  <div class="meta">
+    {showShelf && <span class="tag">{a.shelf.title}</span>}
+    {a.audience.map((x) => <span>{audienceTitle(x)}</span>)}
+  </div>
+  <h3>{a.title}</h3>
+  {a.lead && <p>{a.lead}</p>}
+  <div class="meta">
+    {a.ruleChanged ? <span>⚠ Правило изменилось</span> : a.actualDate && <span>Актуально на {formatDate(a.actualDate)}</span>}
+  </div>
+</a>
