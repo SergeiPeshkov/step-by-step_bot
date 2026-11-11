@@ -253,3 +253,19 @@ class VideoFact(Base):
 
     video: Mapped["Video"] = relationship(back_populates="fact_links")
     fact: Mapped["Fact"] = relationship(back_populates="links")
+
+
+class Article(Base):
+    """Статья для сайта по ролику: простой текст, оформление делает сайт."""
+
+    __tablename__ = "articles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id"), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(300))
+    slug: Mapped[str] = mapped_column(String(200), index=True)
+    body: Mapped[str] = mapped_column(Text)
+    sources_json: Mapped[str] = mapped_column(Text, default="[]")
+    videos_json: Mapped[str] = mapped_column(Text, default="[]")
+    actual_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
