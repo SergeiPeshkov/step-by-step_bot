@@ -13,6 +13,7 @@ BOT_COMMANDS = [
     BotCommand("stats", "Статистика"),
     BotCommand("costs", "Расходы и лимиты"),
     BotCommand("facts", "База фактов"),
+    BotCommand("articles", "Выгрузка статей для сайта"),
     BotCommand("brain", "Мозг системы"),
     BotCommand("settings", "Настройки"),
 ]
@@ -146,6 +147,8 @@ def card_kb(video: Video) -> InlineKeyboardMarkup:
         rows = [[InlineKeyboardButton("Снять с очереди", callback_data=f"v:{vid}:unq")]]
     elif status == VideoStatus.PAUSED:
         rows = [[InlineKeyboardButton("Вернуть в работу", callback_data=f"v:{vid}:resume")]]
+    if status in (VideoStatus.ASSEMBLY, VideoStatus.QUEUED, VideoStatus.PUBLISHED):
+        rows.append([InlineKeyboardButton("Статья для сайта", callback_data=f"v:{vid}:art")])
     rows.append(
         [
             InlineKeyboardButton("Отложить", callback_data=f"v:{vid}:pause"),

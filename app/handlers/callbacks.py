@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from io import BytesIO
 
@@ -13,7 +14,7 @@ from app.enums import AwaitKind, SceneUse, VideoStatus
 from app.handlers.common import fact_text, refresh_card, send_card, send_discussion, send_facts, session, set_await
 from app.keyboards import fact_kb
 from app.models import VideoFact
-from app.services import discussion, facts
+from app.services import articles, discussion, facts
 from app.keyboards import back_stages, brain_kb, card_kb, scene_list, shot_pick
 from app.models import Scene, ScriptVersion, Shot, Video, VoicePhrase
 from app.services.brain import BLOCKS, dump_all, load_block, version_stamp
@@ -224,6 +225,11 @@ async def _video_action(q, context, vid: int, action: str) -> None:
             await _start_visual(q, db, video)
             await send_card(q.message, video, context)
             return
+        if action == "art":
+            await q.message.reply_text("Пишу статью для сайта по сценарию и проверенным фактам…")
+            art = await articles.generate(db, video)
+            await _send_article(q.message, art)
+            return
         if action == "gs":
             await q.message.reply_text("Пишу сценарий…")
             await generate_script(db, video)
@@ -384,6 +390,19 @@ async def _fact_action(q, context, link_id: int, action: str) -> None:
             await send_card(q.message, video, context)
     finally:
         db.close()
+
+
+async def _send_article(message, art) -> None:
+    text = articles.as_text(art)
+    buf = BytesIO(text.encode("utf-8"))
+    buf.name = f"{art.slug}.txt"
+    note = f"Статья «{art.title}». Адрес страницы: {art.slug}"
+    missing = articles.missing_sources(art)
+    if missing:
+        note += f"\n⚠ У {missing} факт(ов) нет источника — добавьте его на этапе «Факты» и пересоздайте статью."
+    if not json.loads(art.videos_json or "[]"):
+        note += "\nСсылок на ролик пока нет: они добавятся, если создать статью после публикации."
+    await message.reply_document(document=buf, filename=f"{art.slug}.txt", caption=note[:1024])
 
 
 async def _publish_now(q, context, db, video: Video) -> None:

@@ -4,6 +4,7 @@ from app.handlers.callbacks import on_callback
 from app.handlers.commands import (
     cmd_brain,
     cmd_costs,
+    cmd_articles,
     cmd_facts,
     cmd_menu,
     cmd_new,
@@ -29,6 +30,7 @@ def register(app: Application) -> None:
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("costs", cmd_costs))
     app.add_handler(CommandHandler("facts", cmd_facts))
+    app.add_handler(CommandHandler("articles", cmd_articles))
     app.add_handler(CommandHandler("brain", cmd_brain))
     app.add_handler(CommandHandler("settings", cmd_settings))
     app.add_handler(MessageHandler(filters.Text(list(MENU_BUTTONS)), on_menu_button))
