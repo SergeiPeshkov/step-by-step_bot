@@ -1,0 +1,18 @@
+---
+import Base from "../../layouts/Base.astro";
+import { ARTICLES, HAS_SHELVES, usedShelves } from "../../lib/articles";
+import Card from "../../components/Card.astro";
+import { shelfColor } from "../../lib/shelfColor";
+const base = import.meta.env.BASE_URL;
+---
+<Base title="Полки" description="Все вопросы по жизненным ситуациям: налоги, ИП, выплаты, жильё, ЖКХ, Крым и другие.">
+  <h1>Полки</h1>
+  {!HAS_SHELVES && <><p class="note">Полки появятся позже. Пока — все вопросы подряд.</p><div class="cards">{ARTICLES.filter((a) => !a.replacedBy).map((a) => <Card a={a} />)}</div></>}
+  <div class="shelves">
+    {usedShelves().map((s) => (
+      <a class="shelf" href={`${base}polka/${s.id}/`} style={`--shelf-color:${shelfColor(s.id)}`}>
+        <b>{s.title}</b><small>{s.count ? `${s.count} — ` : ""}{s.hint}</small>
+      </a>
+    ))}
+  </div>
+</Base>

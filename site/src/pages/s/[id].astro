@@ -1,0 +1,21 @@
+---
+// Короткая ссылка (FR-L07): /s/12/ сразу перекидывает на полную страницу вопроса.
+import { ARTICLES } from "../../lib/articles";
+import { RESERVED } from "../../lib/reserved";
+export function getStaticPaths() {
+  return ARTICLES.filter((a) => !RESERVED.has(a.slug)).map((a) => ({ params: { id: String(a.id) }, props: { a } }));
+}
+const { a } = Astro.props;
+const target = new URL(`${a.slug}/`, Astro.site).href;
+---
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>{a.title}</title>
+    <meta name="robots" content="noindex" />
+    <link rel="canonical" href={target} />
+    <meta http-equiv="refresh" content={`0; url=${target}`} />
+  </head>
+  <body><a href={target}>{a.title}</a></body>
+</html>

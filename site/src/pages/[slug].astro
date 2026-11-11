@@ -1,0 +1,157 @@
+---
+// Страница вопроса (FR-L01–L08). Адрес и заголовок — сам вопрос.
+import Base from "../layouts/Base.astro";
+import Card from "../components/Card.astro";
+import { ARTICLES, HAS_SHELVES, audienceTitle, bySlug, formatDate, related, type Article } from "../lib/articles";
+import { PLATFORM_LABEL, pickPlayer } from "../lib/video";
+import { RESERVED } from "../lib/reserved";
+import { SITE } from "../config";
+
+export function getStaticPaths() {
+  return ARTICLES.filter((a) => !RESERVED.has(a.slug)).map((a) => ({ params: { slug: a.slug }, props: { a } }));
+}
+
+const { a } = Astro.props as { a: Article };
+const base = import.meta.env.BASE_URL;
+const player = pickPlayer(a.videos);
+const newer = a.replacedBy ? bySlug(a.replacedBy) : null;
+const more = related(a);
+const pageUrl = new URL(`${a.slug}/`, Astro.site).href;
+const shortUrl = new URL(`s/${a.id}/`, Astro.site).href;
+const description = (a.summary?.essence || a.lead || a.title).slice(0, 200);
+
+const jsonLd: any[] = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: a.title,
+    description,
+    inLanguage: "ru",
+    datePublished: a.publishedAt?.toISOString(),
+    dateModified: a.updatedAt?.toISOString(),
+    mainEntityOfPage: pageUrl,
+    publisher: { "@type": "Organization", name: SITE.name },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: SITE.name, item: Astro.site?.href },
+      ...(HAS_SHELVES ? [{ "@type": "ListItem", position: 2, name: a.shelf.title, item: new URL(`polka/${a.shelf.id}/`, Astro.site).href }] : []),
+      { "@type": "ListItem", position: HAS_SHELVES ? 3 : 2, name: a.title, item: pageUrl },
+    ],
+  },
+];
+if (player) {
+  jsonLd.push({
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: a.title,
+    description,
+    embedUrl: player,
+    uploadDate: a.publishedAt?.toISOString(),
+    inLanguage: "ru",
+  });
+}
+---
+<Base title={a.title} description={description} jsonLd={jsonLd}>
+  <div class="crumbs"><a href={base}>Главная</a>{HAS_SHELVES && <> › <a href={`${base}polka/${a.shelf.id}/`}>{a.shelf.title}</a></>}</div>
+
+  <div class={`layout ${player || a.videos.length ? "with-video" : ""}`}>
+    {(player || a.videos.length > 0) && (
+      <aside class="side">
+        <div class="player">
+          {player && <div class="frame"><iframe src={player} title={`Ролик: ${a.title}`} loading="lazy" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe></div>}
+          {a.videos.length > 0 && (
+            <div class="watch">
+              <span class="note">Смотреть:</span>
+              {a.videos.map((v) => <a href={v.url} rel="noopener" target="_blank">{PLATFORM_LABEL[v.platform] ?? v.platform}</a>)}
+            </div>
+          )}
+        </div>
+      </aside>
+    )}
+
+    <article class="narrow">
+      <h1>{a.title}</h1>
+      <div class="meta">
+        {a.audience.map((x) => <span class="tag">{audienceTitle(x)}</span>)}
+        {a.actualDate && <span class="actual">Актуально на {formatDate(a.actualDate)}</span>}
+      </div>
+
+      {a.ruleChanged && (
+        <div class="changed">
+          ⚠ Правило изменилось.{" "}
+          {newer ? <>Смотрите новую версию: <a href={`${base}${newer.slug}/`}>{newer.title}</a></> : "Новая версия ролика готовится — проверяйте цифры по источникам ниже."}
+        </div>
+      )}
+
+      {a.summary ? (
+        <dl class="short">
+          {a.summary.essence && <><dt>Суть</dt><dd>{a.summary.essence}</dd></>}
+          {a.summary.todo && <><dt>Что сделать</dt><dd>{a.summary.todo}</dd></>}
+          {a.summary.deadline && <><dt>Срок</dt><dd>{a.summary.deadline}</dd></>}
+        </dl>
+      ) : null}
+
+      {a.blocks.map((b) => (b.kind === "h" ? <h2>{b.text}</h2> : <p>{b.text}</p>))}
+
+      {a.sources.length > 0 && (
+        <>
+          <h2>Ключевые факты и источники</h2>
+          <ul class="facts">
+            {a.sources.map((s) => (
+              <li>
+                {s.fact}
+                <span class="src">
+                  {s.source ? (/^https?:\/\//.test(s.source) ? <a href={s.source} rel="noopener nofollow" target="_blank">{s.source}</a> : s.source) : "источник уточняется"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {a.actualDate && <p><span class="actual">Актуально на {formatDate(a.actualDate)}</span></p>}
+        </>
+      )}
+
+      <div class="share" data-share data-url={pageUrl} data-title={a.title}>
+        <button class="btn" type="button" data-share-btn>Поделиться</button>
+        <input type="text" readonly value={shortUrl} aria-label="Короткая ссылка" />
+        <button class="btn ghost" type="button" data-copy={shortUrl}>Скопировать</button>
+      </div>
+
+      <p class="note">{SITE.disclaimer}</p>
+    </article>
+  </div>
+
+  {more.length > 0 && (
+    <section>
+      <h2>{HAS_SHELVES ? `Похожие вопросы с полки «${a.shelf.title}»` : "Другие вопросы"}</h2>
+      <div class="cards">{more.map((x) => <Card a={x} showShelf={!HAS_SHELVES} />)}</div>
+    </section>
+  )}
+</Base>
+
+<script>
+  // «Поделиться» (FR-L07): на телефоне открывается системное меню, на компьютере — ВКонтакте/Telegram.
+  document.querySelectorAll<HTMLElement>("[data-share]").forEach((box) => {
+    const url = box.dataset.url!;
+    const title = box.dataset.title!;
+    box.querySelector("[data-share-btn]")?.addEventListener("click", async () => {
+      if (navigator.share) {
+        try { await navigator.share({ title, url }); } catch {}
+        return;
+      }
+      window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`, "_blank", "noopener");
+    });
+    box.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(btn.dataset.copy!);
+          btn.textContent = "Скопировано";
+        } catch {
+          (box.querySelector("input") as HTMLInputElement | null)?.select();
+        }
+      }),
+    );
+  });
+</script>

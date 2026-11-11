@@ -1,0 +1,23 @@
+---
+// Страница полки (FR-L09) с фильтром «для кого» (FR-L10).
+import Base from "../../layouts/Base.astro";
+import Card from "../../components/Card.astro";
+import AudienceFilter from "../../components/AudienceFilter.astro";
+import { onShelf, usedShelves } from "../../lib/articles";
+
+export function getStaticPaths() {
+  return usedShelves().map((s) => ({ params: { shelf: s.id }, props: { s } }));
+}
+const { s } = Astro.props;
+const items = onShelf(s.id).filter((a) => !a.replacedBy);
+const base = import.meta.env.BASE_URL;
+---
+<Base title={s.title} description={`${s.title}: ${s.hint}. Короткие ролики и объяснения простыми словами.`}>
+  <div class="crumbs"><a href={base}>Главная</a> › <a href={`${base}polka/`}>Полки</a></div>
+  <h1>{s.title}</h1>
+  <p class="note">{s.hint}</p>
+  <section>
+    <AudienceFilter />
+    {items.length ? <div class="cards">{items.map((a) => <Card a={a} showShelf={false} />)}</div> : <p class="empty">На этой полке пока пусто. Ролики уже в работе.</p>}
+  </section>
+</Base>

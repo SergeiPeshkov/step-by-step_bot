@@ -1,0 +1,25 @@
+---
+// Фильтр «для кого» (FR-L10). Работает прямо в браузере: прячет карточки, которые не подходят.
+import { AUDIENCES } from "../config";
+import { HAS_AUDIENCE } from "../lib/articles";
+---
+{HAS_AUDIENCE && <div class="chips" data-audience-filter>
+  <button class="chip" type="button" aria-pressed="true" data-value="">Всем</button>
+  {AUDIENCES.map((a) => <button class="chip" type="button" aria-pressed="false" data-value={a.id}>{a.title}</button>)}
+</div>}
+<script>
+  document.querySelectorAll<HTMLElement>("[data-audience-filter]").forEach((box) => {
+    const scope = box.parentElement ?? document;
+    box.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest("button");
+      if (!btn) return;
+      const value = btn.dataset.value ?? "";
+      box.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+      scope.querySelectorAll<HTMLElement>(".card[data-audience]").forEach((card) => {
+        const list = (card.dataset.audience ?? "").split(" ").filter(Boolean);
+        // Карточки без пометки «для кого» показываем всегда.
+        card.hidden = Boolean(value) && list.length > 0 && !list.includes(value);
+      });
+    });
+  });
+</script>

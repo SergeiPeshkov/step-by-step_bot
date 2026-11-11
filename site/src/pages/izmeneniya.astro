@@ -1,0 +1,33 @@
+---
+// «Что изменилось за месяц» (FR-L12): новые и обновлённые ролики, по месяцам.
+import Base from "../layouts/Base.astro";
+import Card from "../components/Card.astro";
+import { ARTICLES } from "../lib/articles";
+
+const changed = [...ARTICLES]
+  .map((a) => ({ a, at: a.updatedAt ?? a.publishedAt }))
+  .filter((x) => x.at)
+  .sort((x, y) => y.at!.getTime() - x.at!.getTime());
+
+const groups = new Map<string, typeof changed>();
+for (const x of changed) {
+  const key = x.at!.toLocaleDateString("ru-RU", { month: "long", year: "numeric", timeZone: "Europe/Moscow" });
+  if (!groups.has(key)) groups.set(key, []);
+  groups.get(key)!.push(x);
+}
+const months = [...groups.entries()].slice(0, 6);
+const isNew = (x: (typeof changed)[number]) =>
+  !x.a.publishedAt || !x.a.updatedAt || Math.abs(x.a.updatedAt.getTime() - x.a.publishedAt.getTime()) < 86400000;
+---
+<Base title="Что изменилось" description="Новые и обновлённые вопросы за последние месяцы: какие правила поменялись.">
+  <h1>Что изменилось</h1>
+  <p class="note">Новые ролики и ролики, в которых обновились цифры или правила.</p>
+  {months.length === 0 && <p class="empty">Пока изменений нет.</p>}
+  {months.map(([month, items]) => (
+    <section>
+      <h2>{month[0].toUpperCase() + month.slice(1)}</h2>
+      <p class="note">Новых: {items.filter(isNew).length} · обновлённых: {items.filter((x) => !isNew(x)).length}</p>
+      <div class="cards">{items.map((x) => <Card a={x.a} />)}</div>
+    </section>
+  ))}
+</Base>
