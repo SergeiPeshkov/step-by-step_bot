@@ -57,7 +57,7 @@ async def generate_script(session: Session, video: Video, note: str = "") -> Scr
         "Напиши сценарий целиком, без заголовков и пояснений."
     )
     system = (
-        "Ты пишешь сценарии коротких роликов «Смотри глубже».\n"
+        "Ты пишешь сценарии коротких роликов «По полочкам» — короткие ответы на вопросы о законах простыми словами.\n"
         + dump_all()
         + "\nОтвет — только текст сценария."
     )
@@ -79,12 +79,16 @@ async def generate_storyboard(session: Session, video: Video) -> list[Shot]:
     system = (
         "РАСКАДРОВКА. Верни JSON {\"shots\":[...]} без markdown.\n"
         "Поля кадра: ord, start, end, type, voice, description, effect.\n"
-        "type: image|video|ritual|text|montage|black.\n"
+        "type: image|video|text|montage|black.\n"
         + load_block("storyboard_rules")
     )
     raw = await llm.complete(system, f"Сценарий:\n{script.text}")
     data = _extract_json(raw)
-    shots_data = data.get("shots") or []
+    return save_shots(session, video, data.get("shots") or [])
+
+
+def save_shots(session: Session, video: Video, shots_data: list[dict]) -> list[Shot]:
+    """Заменяет кадры ролика на новые. Поле prompt необязательно: пустые промпты потом соберёт generate_prompts."""
     video.shots.clear()
     session.flush()
     video_count = 0
@@ -104,6 +108,7 @@ async def generate_storyboard(session: Session, video: Video) -> list[Shot]:
             description=item.get("description") or "",
             shot_type=stype,
             effect=item.get("effect") or ("zoom_in" if stype == "image" else "none"),
+            prompt=item.get("prompt") or "",
         )
         session.add(shot)
         created.append(shot)
@@ -116,14 +121,17 @@ async def generate_storyboard(session: Session, video: Video) -> list[Shot]:
 
 async def generate_prompts(session: Session, video: Video) -> None:
     bible = load_block("style_bible")
-    bans = "без текста в кадре, без лица Ищущего, без узнаваемых реальных людей, 9:16"
+    bans = "без текста в кадре, без логотипов банков и брендов, без госсимволики, без узнаваемых реальных людей, 9:16"
     for shot in video.shots:
         if shot.shot_type in (ShotType.BLACK, ShotType.TEXT, ShotType.RITUAL):
             shot.prompt = ""
             continue
+        if shot.prompt.strip():
+            # Промпт уже написал ИИ-сценарист вместе с автором — не трогаем.
+            continue
         shot.prompt = (
             f"{shot.description}. {bible} {bans}. "
-            "cinematic still, vertical 9:16, no text overlay, no watermark."
+            "clean modern image, vertical 9:16, no text overlay, no watermark, no logo."
         )
     video.status = VideoStatus.PROMPTS
     audit(session, video, "prompts")
@@ -293,3 +301,20 @@ def title_of(video: Video) -> str:
     if video.scene:
         return f"{video.scene.code} · {video.scene.scene}"
     return video.custom_topic or f"Ролик #{video.id}"
+
+
+def _extract_json(raw: str) -> dict:
+    """Достаёт JSON из ответа модели: снимает ```-обёртку и берёт первый {...}."""
+    text = (raw or "").strip()
+    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.I)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        start, end = text.find("{"), text.rfind("}")
+        if start == -1 or end <= start:
+            return {}
+        try:
+            data = json.loads(text[start : end + 1])
+        except json.JSONDecodeError:
+            return {}
+    return data if isinstance(data, dict) else {}

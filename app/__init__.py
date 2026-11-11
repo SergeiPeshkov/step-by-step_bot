@@ -1,1 +1,1 @@
-"""Telegram-бот «Смотри глубже» / Step-by-Step."""
+"""Telegram-бот «По полочкам» / Step-by-Step."""

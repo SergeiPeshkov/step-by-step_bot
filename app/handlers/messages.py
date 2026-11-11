@@ -5,7 +5,8 @@ from telegram.ext import ContextTypes
 
 from app.access import guard
 from app.enums import AwaitKind, SceneUse, VideoStatus
-from app.handlers.common import send_card, session, set_await, state_of
+from app.handlers.common import send_card, send_discussion, session, set_await, state_of
+from app.services import discussion
 from app.models import Scene, ScriptVersion, Shot, Video, VoicePhrase
 from app.services.brain import BLOCKS, save_block, version_stamp
 from app.handlers.commands import (
@@ -89,6 +90,22 @@ async def on_text_or_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if st.awaiting == AwaitKind.NEW_TOPIC or st.awaiting == "new_topic":
         await _new_from_topic(update, context, text)
         return
+    if st.awaiting in (AwaitKind.DISCUSS_SCRIPT, AwaitKind.DISCUSS_VISUAL) and st.video_id:
+        stage = discussion.SCRIPT if st.awaiting == AwaitKind.DISCUSS_SCRIPT else discussion.VISUAL
+        db = session()
+        try:
+            video = db.get(Video, st.video_id)
+            if not video:
+                set_await(user_id, AwaitKind.NONE)
+                return
+            await context.bot.send_chat_action(update.effective_chat.id, "typing")
+            answer = await discussion.reply(db, video, stage, text)
+            await send_discussion(update.message, video.id, stage, answer)
+        except Exception as exc:
+            await update.message.reply_text(f"ИИ-сценарист не ответил: {exc}")
+        finally:
+            db.close()
+        return
     if st.awaiting == AwaitKind.BRAIN_EDIT:
         save_block(st.extra, text)
         set_await(user_id, AwaitKind.NONE)
@@ -169,11 +186,13 @@ async def _new_from_topic(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         db.add(video)
         db.commit()
         db.refresh(video)
-        set_await(update.effective_user.id, AwaitKind.NONE, video.id)
-        await update.message.reply_text("Черновик создан. Запускаю сценарий…")
-        await generate_script(db, video)
-        db.refresh(video)
-        await send_card(update.message, video, context)
+        set_await(update.effective_user.id, AwaitKind.DISCUSS_SCRIPT, video.id)
+        await update.message.reply_text(
+            "Ролик создан. Обсуждаем его с ИИ-сценаристом: пишите сообщения прямо в чат (можно голосом), "
+            "когда договоритесь — нажмите «Написать сценарий»."
+        )
+        answer = await discussion.start(db, video, discussion.SCRIPT)
+        await send_discussion(update.message, video.id, discussion.SCRIPT, answer)
     finally:
         db.close()
 

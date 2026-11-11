@@ -4,7 +4,7 @@ from telegram import Message
 from telegram.ext import ContextTypes
 
 from app.db import SessionLocal
-from app.keyboards import card_kb
+from app.keyboards import card_kb, discussion_kb
 from app.cards import card_text
 from app.models import UserState, Video
 
@@ -52,6 +52,7 @@ async def send_card(message: Message, video: Video, context: ContextTypes.DEFAUL
         _ = v.scene
         _ = v.scripts
         _ = v.shots
+        _ = v.discussion
         text = card_text(v)
         kb = card_kb(v)
         sent = await message.reply_text(text[:3900], reply_markup=kb)
@@ -60,6 +61,15 @@ async def send_card(message: Message, video: Video, context: ContextTypes.DEFAUL
         db.commit()
     finally:
         db.close()
+
+
+async def send_discussion(message: Message, video_id: int, stage: str, text: str) -> None:
+    """Ответ ИИ-сценариста: длинный текст режется на части, кнопки — под последней."""
+    text = text or "…"
+    chunks = [text[i : i + 3900] for i in range(0, len(text), 3900)]
+    for i, chunk in enumerate(chunks):
+        last = i == len(chunks) - 1
+        await message.reply_text(chunk, reply_markup=discussion_kb(video_id, stage) if last else None)
 
 
 async def refresh_card(context: ContextTypes.DEFAULT_TYPE, video: Video) -> None:

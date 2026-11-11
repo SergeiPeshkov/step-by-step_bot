@@ -17,6 +17,14 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4o-mini"
 
+    # ИИ-сценарист: отдельная модель для обсуждения сценария, раскадровки и промптов.
+    # Пустые поля берутся из LLM_*.
+    writer_provider: str = ""
+    writer_api_key: str = ""
+    writer_base_url: str = ""
+    writer_model: str = ""
+    writer_temperature: float = 0.8
+
     image_provider: str = "stub"
     image_api_key: str = ""
     image_base_url: str = ""

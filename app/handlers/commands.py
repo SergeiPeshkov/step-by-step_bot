@@ -20,7 +20,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await guard(update, context):
         return
     await update.message.reply_text(
-        "Смотри глубже — пульт автора.\n"
+        "По полочкам — пульт автора.\n"
         "Команды — в меню слева от поля ввода (кнопка /) и на клавиатуре внизу.\n\n"
         "/new — новый ролик\n"
         "/plan — контент-план (свой CSV/JSON)\n"

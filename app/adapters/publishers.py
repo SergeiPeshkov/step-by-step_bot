@@ -50,7 +50,7 @@ class VKPublisher:
                     "access_token": settings.vk_access_token,
                     "v": settings.vk_api_version,
                     "group_id": settings.vk_group_id,
-                    "name": caption[:128] or "Смотри глубже",
+                    "name": caption[:128] or "По полочкам",
                     "description": text,
                     "wallpost": 1,
                 },

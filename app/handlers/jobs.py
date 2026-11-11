@@ -31,7 +31,7 @@ async def process_publish_queue(context: ContextTypes.DEFAULT_TYPE) -> None:
             from pathlib import Path
 
             caption = title_of(video)
-            tags = "#смотриглубже #ищущий"
+            tags = "#пополочкам"
             ok_any = False
             for pub in pubs:
                 rec = Publication(video_id=video.id, platform=pub.name, caption=caption, hashtags=tags, status="pending")
