@@ -37,6 +37,7 @@ def init_db() -> None:
             "video_id": "INTEGER",
         },
     )
+    _ensure_sqlite_columns("articles", {"seo_json": "TEXT DEFAULT '{}'"})
 
 
 def _ensure_sqlite_columns(table: str, columns: dict[str, str]) -> None:

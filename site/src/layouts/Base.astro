@@ -1,7 +1,12 @@
 ---
+import "@fontsource/golos-text/400.css";
+import "@fontsource/golos-text/600.css";
+import "@fontsource/golos-text/700.css";
+import "@fontsource/pt-serif/700.css";
 import "../styles/global.css";
 import { SITE } from "../config";
-import { HAS_SHELVES } from "../lib/articles";
+import { HAS_SHELVES, allTags } from "../lib/articles";
+const HAS_TAGS = allTags().length > 0;
 
 interface Props {
   title: string;
@@ -9,10 +14,16 @@ interface Props {
   canonical?: string;
   jsonLd?: object;
   noindex?: boolean;
+  /** Картинка для соцсетей и поиска (1200×630). По умолчанию — общая обложка сайта. */
+  image?: string;
+  type?: "website" | "article";
+  published?: Date | null;
+  modified?: Date | null;
 }
-const { title, description = SITE.tagline, canonical, jsonLd, noindex = false } = Astro.props;
+const { title, description = SITE.tagline, canonical, jsonLd, noindex = false, type = "website", published, modified } = Astro.props;
+const image = new URL(Astro.props.image ?? "og/default.png", Astro.site).href;
 const url = canonical ?? new URL(Astro.url.pathname, Astro.site).href;
-const fullTitle = title === SITE.name ? title : `${title} — ${SITE.name}`;
+const fullTitle = title.startsWith(SITE.name) ? title : `${title} — ${SITE.name}`;
 const base = import.meta.env.BASE_URL;
 ---
 <!doctype html>
@@ -23,27 +34,50 @@ const base = import.meta.env.BASE_URL;
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={url} />
-    {noindex && <meta name="robots" content="noindex" />}
-    <meta property="og:type" content="article" />
+    <meta name="robots" content={noindex ? "noindex, follow" : "index, follow, max-image-preview:large, max-video-preview:-1"} />
+    <meta name="theme-color" content="#3A2A1F" />
+    <meta name="format-detection" content="telephone=no" />
+    {SITE.yandexVerification && <meta name="yandex-verification" content={SITE.yandexVerification} />}
+    {SITE.googleVerification && <meta name="google-site-verification" content={SITE.googleVerification} />}
+    <meta property="og:type" content={type} />
     <meta property="og:site_name" content={SITE.name} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={url} />
     <meta property="og:locale" content="ru_RU" />
-    {SITE.theme === "g" && <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;600;700&family=PT+Serif:wght@700&display=swap" />
-    </>}
+    <meta property="og:image" content={image} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={title} />
+    <meta property="vk:image" content={image} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+    {published && <meta property="article:published_time" content={published.toISOString()} />}
+    {modified && <meta property="article:modified_time" content={modified.toISOString()} />}
     <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
+    <link rel="icon" href={`${base}favicon-120.png`} type="image/png" sizes="120x120" />
+    <link rel="apple-touch-icon" href={`${base}apple-touch-icon.png`} />
+    <link rel="alternate" type="application/rss+xml" title={SITE.name} href={new URL("rss.xml", Astro.site).href} />
     {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+    {SITE.metrikaId && (
+      <script is:inline define:vars={{ id: Number(SITE.metrikaId) }}>
+        (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+        (window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");
+        ym(id,"init",{clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true});
+      </script>
+    )}
   </head>
   <body>
     <header class="site-head">
       <div class="wrap">
         <a class="logo" href={base}><span class="logo-mark"><i></i><i></i><i></i></span>{SITE.name}</a>
-        <nav class="nav">
+        <nav class="nav" aria-label="Разделы сайта">
           {HAS_SHELVES && <a href={`${base}polka/`}>Полки</a>}
+          <a href={`${base}voprosy/`}>Все вопросы</a>
+          {HAS_TAGS && <a href={`${base}tema/`}>Темы</a>}
           <a href={`${base}izmeneniya/`}>Что изменилось</a>
           <a href={`${base}poisk/`}>Поиск</a>
           <a href={`${base}predlozhit-temu/`}>Предложить тему</a>

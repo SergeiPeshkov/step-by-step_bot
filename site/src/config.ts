@@ -18,6 +18,16 @@ export const SITE = {
     max: "",
   },
   disclaimer: "Материал носит справочный характер и не является юридической консультацией.",
+
+  // SEO. Коды подтверждения можно задать и переменными окружения при сборке
+  // (YANDEX_VERIFICATION, GOOGLE_VERIFICATION, METRIKA_ID) — тогда в коде их держать не нужно.
+  // Яндекс Вебмастер → Добавить сайт → «Мета-тег»: сюда только значение content.
+  yandexVerification: import.meta.env.YANDEX_VERIFICATION ?? "",
+  googleVerification: import.meta.env.GOOGLE_VERIFICATION ?? "",
+  // Номер счётчика Яндекс Метрики (поведенческие факторы важны для Яндекса). Пусто — счётчика нет.
+  metrikaId: import.meta.env.METRIKA_ID ?? "",
+  // Кто отвечает за материалы (для разметки Article). Пусто — указывается сам сайт.
+  author: "",
 };
 
 // Полки по жизненным ситуациям (FR-L09). id — часть адреса страницы полки.

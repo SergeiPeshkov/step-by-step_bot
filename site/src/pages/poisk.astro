@@ -5,7 +5,7 @@ import Base from "../layouts/Base.astro";
 import { SITE } from "../config";
 const base = import.meta.env.BASE_URL;
 ---
-<Base title="Поиск" description="Опишите свой вопрос своими словами — подберём подходящие ролики.">
+<Base title="Поиск" noindex description="Опишите свой вопрос своими словами — подберём подходящие ролики.">
   <h1>Опишите свой вопрос</h1>
   <form class="search" role="search" data-search-form>
     <input name="q" type="search" placeholder="Например: «как вернуть налог за лечение зубов»" aria-label="Опишите свой вопрос" autofocus />

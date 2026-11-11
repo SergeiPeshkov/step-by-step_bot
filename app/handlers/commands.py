@@ -194,6 +194,21 @@ async def cmd_facts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         db.close()
 
 
+async def cmd_site(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Собрать сайт из статей и выложить его (если задана SITE_DEPLOY_CMD)."""
+    if not await guard(update, context):
+        return
+    from app.services.site import build_and_deploy
+
+    await update.message.reply_text("Собираю сайт…")
+    db = session()
+    try:
+        result = await build_and_deploy(db)
+    finally:
+        db.close()
+    await update.message.reply_text(("✅ " if result.ok else "⚠️ ") + result.text[:3900])
+
+
 async def cmd_articles(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Все статьи одним JSON-файлом — его забирает сайт."""
     if not await guard(update, context):

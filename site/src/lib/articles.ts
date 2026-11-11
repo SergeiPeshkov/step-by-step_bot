@@ -7,12 +7,20 @@
 //   replaced_by  — slug новой версии, если правило изменилось
 //   rule_changed — true, если правило изменилось, а новой версии ещё нет
 //   published_at — дата первой публикации
-import raw from "../data/articles.json";
+//   seo_title, description — заголовок и описание для поиска (пишет ИИ бота)
+//   tags         — темы статьи: из них собираются страницы /tema/<тема>/
+//   faq          — [{ q, a }]: частые вопросы, блок на странице и разметка FAQPage
+//   video_file, poster — свой файл ролика и обложка (бот кладёт их в public/video при /site)
+// Бот пишет статьи в src/data/articles.bot.json (файла нет в git). Если его нет — берём примеры из articles.json.
+const files = import.meta.glob("../data/articles*.json", { eager: true, import: "default" }) as Record<string, unknown>;
+const raw = files["../data/articles.bot.json"] ?? files["../data/articles.json"];
 import { AUDIENCES, OTHER_SHELF, SHELVES } from "../config";
 
 export type Source = { fact: string; source?: string | null };
 export type VideoLink = { platform: string; url: string };
 export type Block = { kind: "h" | "p"; text: string };
+export type Tag = { name: string; slug: string };
+export type Faq = { q: string; a: string };
 
 export type Article = {
   id: number;
@@ -21,6 +29,12 @@ export type Article = {
   blocks: Block[];
   plain: string;
   videos: VideoLink[];
+  seoTitle: string | null;
+  seoDescription: string | null;
+  tags: Tag[];
+  faq: Faq[];
+  videoFile: string | null;
+  poster: string | null;
   sources: Source[];
   actualDate: Date | null;
   updatedAt: Date | null;
@@ -37,6 +51,34 @@ const toDate = (v: unknown): Date | null => {
   if (!v || typeof v !== "string") return null;
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d;
+};
+
+// Путь к файлу: полный адрес оставляем как есть, относительный — от корня сайта.
+const media = (v: unknown): string | null => {
+  if (!v || typeof v !== "string") return null;
+  return /^https?:\/\//.test(v) ? v : `${import.meta.env.BASE_URL}${v.replace(/^\/+/, "")}`;
+};
+
+const TRANSLIT: Record<string, string> = {
+  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i", й: "y", к: "k", л: "l", м: "m",
+  н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "kh", ц: "ts", ч: "ch", ш: "sh", щ: "shch",
+  ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+};
+export const slugify = (s: string) =>
+  [...s.toLowerCase()].map((c) => TRANSLIT[c] ?? c).join("").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+
+const toTags = (v: unknown): Tag[] => {
+  const list = Array.isArray(v) ? v : [];
+  const seen = new Set<string>();
+  const out: Tag[] = [];
+  for (const raw of list) {
+    const name = String(raw).replace(/^#/, "").trim().toLowerCase();
+    const slug = slugify(name);
+    if (!name || !slug || seen.has(slug)) continue;
+    seen.add(slug);
+    out.push({ name, slug });
+  }
+  return out;
 };
 
 const findShelf = (v: unknown) => {
@@ -78,6 +120,12 @@ function normalize(a: any): Article {
     blocks,
     plain: blocks.map((b) => b.text).join(" "),
     videos: Array.isArray(a.videos) ? a.videos.filter((v: any) => v?.url) : [],
+    seoTitle: typeof a.seo_title === "string" && a.seo_title.trim() ? a.seo_title.trim() : null,
+    seoDescription: typeof a.description === "string" && a.description.trim() ? a.description.trim() : null,
+    tags: toTags(a.tags),
+    faq: Array.isArray(a.faq) ? a.faq.filter((x: any) => x?.q && x?.a).map((x: any) => ({ q: String(x.q), a: String(x.a) })) : [],
+    videoFile: media(a.video_file),
+    poster: media(a.poster),
     sources: Array.isArray(a.sources) ? a.sources : [],
     actualDate: toDate(a.actual_date),
     updatedAt: toDate(a.updated_at),
@@ -107,10 +155,18 @@ export const bySlug = (slug: string) => ARTICLES.find((a) => a.slug === slug) ??
 export const onShelf = (shelfId: string) => ARTICLES.filter((a) => a.shelf.id === shelfId);
 
 // Похожие вопросы: с той же полки, а если полок нет — просто свежие вопросы.
+// Похожие вопросы: сначала с общими темами (тегами), потом с той же полки, потом свежие.
 export function related(article: Article, limit = 4): Article[] {
-  return ARTICLES.filter(
-    (a) => (!HAS_SHELVES || a.shelf.id === article.shelf.id) && a.slug !== article.slug && !a.replacedBy,
-  ).slice(0, limit);
+  const mine = new Set(article.tags.map((t) => t.slug));
+  return ARTICLES.filter((a) => a.slug !== article.slug && !a.replacedBy)
+    .map((a) => ({
+      a,
+      score: a.tags.filter((t) => mine.has(t.slug)).length * 2 + (HAS_SHELVES && a.shelf.id === article.shelf.id ? 1 : 0),
+    }))
+    .filter((x) => x.score > 0 || !HAS_SHELVES)
+    .sort((x, y) => y.score - x.score)
+    .slice(0, limit)
+    .map((x) => x.a);
 }
 
 export function usedShelves() {
@@ -119,6 +175,38 @@ export function usedShelves() {
   return all
     .map((s) => ({ ...s, count: onShelf(s.id).length }))
     .filter((s) => s.count > 0 || s.id !== OTHER_SHELF.id);
+}
+
+// Описание для поиска: 120–160 знаков, обрезаем по слову.
+export function metaDescription(a: Article): string {
+  const text = [a.seoDescription, a.summary?.essence, a.lead, a.plain].find((t) => t && t.trim().length > 0) ?? a.title;
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= 160) return clean;
+  return clean.slice(0, 157).replace(/\s+\S*$/, "").replace(/[,;:—-]$/, "") + "…";
+}
+
+// Короткий ответ для разметки «вопрос — ответ»: суть + первые абзацы, до ~600 знаков.
+export function shortAnswer(a: Article): string {
+  const parts = [a.summary?.essence, a.summary?.todo, a.summary?.deadline].filter(Boolean) as string[];
+  for (const b of a.blocks) {
+    if (parts.join(" ").length > 450) break;
+    if (b.kind === "p") parts.push(b.text);
+  }
+  const text = parts.join(" ");
+  return text.length <= 600 ? text : text.slice(0, 597).replace(/\s+\S*$/, "") + "…";
+}
+
+// Темы (теги) со всех статей: страница темы собирает вопросы, где она встречается.
+export function allTags(): (Tag & { articles: Article[] })[] {
+  const map = new Map<string, Tag & { articles: Article[] }>();
+  for (const a of ARTICLES) {
+    if (a.replacedBy) continue;
+    for (const t of a.tags) {
+      if (!map.has(t.slug)) map.set(t.slug, { ...t, articles: [] });
+      map.get(t.slug)!.articles.push(a);
+    }
+  }
+  return [...map.values()].sort((x, y) => y.articles.length - x.articles.length || x.name.localeCompare(y.name, "ru"));
 }
 
 export const formatDate = (d: Date | null) =>

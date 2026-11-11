@@ -70,6 +70,24 @@ class Settings(BaseSettings):
     outro_max_seconds: float = 4.0
     hashtags: str = "#пополочкам"
 
+    # Сайт (папка site, Astro). Команда /site пишет статьи в site/src/data/articles.json,
+    # собирает сайт (npm run build) и выполняет SITE_DEPLOY_CMD, если она задана.
+    # В команде доступна переменная SITE_DIST — путь к готовой папке dist.
+    # Пример: rsync -az --delete "$SITE_DIST/" user@host:/var/www/site/
+    site_dir: Path = ROOT / "site"
+    site_deploy_cmd: str = ""
+    # true — пересобирать и выкладывать сайт сам после каждой новой или обновлённой статьи.
+    site_auto_build: bool = False
+    # false — на сайте плеер VK Видео (или другой площадки) по ссылке из публикации.
+    # true — бот кладёт на сайт свой файл ролика (mp4 720p) и обложку.
+    site_own_video: bool = False
+    # Откуда сайт берёт файлы роликов. Пусто — с того же сервера (папка video рядом с сайтом).
+    # Если вынести ролики в облако (например, Yandex Object Storage), укажите адрес бакета.
+    site_media_url: str = ""
+    # IndexNow: после выкладки бот сообщает Яндексу о новых и изменённых страницах, и они быстрее попадают в поиск.
+    # Любая строка из латинских букв и цифр, 8–128 символов. Пусто — не сообщать.
+    indexnow_key: str = ""
+
     daily_cost_limit: float = 500
     monthly_cost_limit: float = 6000
     keep_files_days: int = 30

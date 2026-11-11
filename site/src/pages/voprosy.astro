@@ -1,0 +1,26 @@
+---
+// Все вопросы одним списком: прямые ссылки на каждую страницу помогают поисковикам обойти сайт.
+import Base from "../layouts/Base.astro";
+import { ARTICLES, formatDate } from "../lib/articles";
+import { RESERVED } from "../lib/reserved";
+const base = import.meta.env.BASE_URL;
+const items = ARTICLES.filter((a) => !a.replacedBy && !RESERVED.has(a.slug)).sort((x, y) => x.title.localeCompare(y.title, "ru"));
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: "Все вопросы",
+  numberOfItems: items.length,
+  itemListElement: items.map((a, i) => ({ "@type": "ListItem", position: i + 1, url: new URL(`${a.slug}/`, Astro.site).href, name: a.title })),
+};
+---
+<Base title="Все вопросы" description={`Все вопросы «По полочкам» по алфавиту: ${items.length} коротких объяснений законов и правил с роликами.`} jsonLd={jsonLd}>
+  <nav class="crumbs" aria-label="Навигационная цепочка"><a href={base}>Главная</a></nav>
+  <h1>Все вопросы</h1>
+  {items.length ? (
+    <ul class="qlist">
+      {items.map((a) => (
+        <li><a href={`${base}${a.slug}/`}>{a.title}</a>{a.actualDate && <span class="note"> — актуально на {formatDate(a.actualDate)}</span>}</li>
+      ))}
+    </ul>
+  ) : <p class="empty">Вопросы появятся, когда выйдут первые ролики.</p>}
+</Base>

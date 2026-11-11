@@ -2,7 +2,7 @@
 // Страница вопроса (FR-L01–L08). Адрес и заголовок — сам вопрос.
 import Base from "../layouts/Base.astro";
 import Card from "../components/Card.astro";
-import { ARTICLES, HAS_SHELVES, audienceTitle, bySlug, formatDate, related, type Article } from "../lib/articles";
+import { ARTICLES, HAS_SHELVES, audienceTitle, bySlug, formatDate, metaDescription, related, shortAnswer, type Article } from "../lib/articles";
 import { PLATFORM_LABEL, pickPlayer } from "../lib/video";
 import { RESERVED } from "../lib/reserved";
 import { SITE } from "../config";
@@ -18,19 +18,44 @@ const newer = a.replacedBy ? bySlug(a.replacedBy) : null;
 const more = related(a);
 const pageUrl = new URL(`${a.slug}/`, Astro.site).href;
 const shortUrl = new URL(`s/${a.id}/`, Astro.site).href;
-const description = (a.summary?.essence || a.lead || a.title).slice(0, 200);
+const description = metaDescription(a);
+const ogImage = `og/${a.slug}.png`;
+const ogAbs = new URL(ogImage, Astro.site).href;
+// Если вышла новая версия, поисковик склеивает старую страницу с новой.
+const canonical = newer ? new URL(`${newer.slug}/`, Astro.site).href : pageUrl;
+const org = {
+  "@type": "Organization",
+  name: SITE.name,
+  url: Astro.site?.href,
+  logo: { "@type": "ImageObject", url: new URL("apple-touch-icon.png", Astro.site).href, width: 180, height: 180 },
+};
 
 const jsonLd: any[] = [
   {
     "@context": "https://schema.org",
     "@type": "Article",
-    headline: a.title,
+    headline: a.title.slice(0, 110),
     description,
+    image: [ogAbs],
     inLanguage: "ru",
     datePublished: a.publishedAt?.toISOString(),
-    dateModified: a.updatedAt?.toISOString(),
-    mainEntityOfPage: pageUrl,
-    publisher: { "@type": "Organization", name: SITE.name },
+    dateModified: (a.updatedAt ?? a.publishedAt)?.toISOString(),
+    mainEntityOfPage: { "@type": "WebPage", "@id": pageUrl },
+    author: SITE.author ? { "@type": "Person", name: SITE.author } : org,
+    publisher: org,
+    isAccessibleForFree: true,
+    ...(a.tags.length ? { keywords: a.tags.map((t) => t.name).join(", "), about: a.tags.map((t) => ({ "@type": "Thing", name: t.name })) } : {}),
+    ...(a.sources.some((s) => s.source && /^https?:/.test(s.source))
+      ? { citation: a.sources.filter((s) => s.source && /^https?:/.test(s.source)).map((s) => s.source) }
+      : {}),
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      { "@type": "Question", name: a.title, acceptedAnswer: { "@type": "Answer", text: shortAnswer(a) } },
+      ...a.faq.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
+    ],
   },
   {
     "@context": "https://schema.org",
@@ -42,86 +67,116 @@ const jsonLd: any[] = [
     ],
   },
 ];
-if (player) {
+if (a.videoFile || player) {
+  const abs = (p: string | null) => (p ? new URL(p, Astro.site).href : undefined);
   jsonLd.push({
     "@context": "https://schema.org",
     "@type": "VideoObject",
     name: a.title,
     description,
-    embedUrl: player,
-    uploadDate: a.publishedAt?.toISOString(),
+    contentUrl: abs(a.videoFile),
+    embedUrl: player ?? undefined,
+    thumbnailUrl: abs(a.poster) ?? ogAbs,
+    uploadDate: (a.publishedAt ?? a.updatedAt)?.toISOString(),
     inLanguage: "ru",
+    isFamilyFriendly: true,
+    publisher: org,
   });
 }
 ---
-<Base title={a.title} description={description} jsonLd={jsonLd}>
-  <div class="crumbs"><a href={base}>Главная</a>{HAS_SHELVES && <> › <a href={`${base}polka/${a.shelf.id}/`}>{a.shelf.title}</a></>}</div>
+<Base title={a.seoTitle ?? a.title} description={description} jsonLd={jsonLd} image={ogImage} type="article" canonical={canonical} published={a.publishedAt} modified={a.updatedAt}>
+  <nav class="crumbs" aria-label="Навигационная цепочка"><a href={base}>Главная</a> › {HAS_SHELVES ? <a href={`${base}polka/${a.shelf.id}/`}>{a.shelf.title}</a> : <a href={`${base}voprosy/`}>Все вопросы</a>}</nav>
 
-  <div class={`layout ${player || a.videos.length ? "with-video" : ""}`}>
-    {(player || a.videos.length > 0) && (
-      <aside class="side">
-        <div class="player">
-          {player && <div class="frame"><iframe src={player} title={`Ролик: ${a.title}`} loading="lazy" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe></div>}
-          {a.videos.length > 0 && (
-            <div class="watch">
-              <span class="note">Смотреть:</span>
-              {a.videos.map((v) => <a href={v.url} rel="noopener" target="_blank">{PLATFORM_LABEL[v.platform] ?? v.platform}</a>)}
-            </div>
-          )}
-        </div>
-      </aside>
+  <article class="narrow">
+    <h1>{a.title}</h1>
+    <div class="meta">
+      {a.audience.map((x) => <span class="tag">{audienceTitle(x)}</span>)}
+      {a.actualDate && <span class="actual">Актуально на {formatDate(a.actualDate)}</span>}
+      {a.updatedAt && <span>Обновлено <time datetime={a.updatedAt.toISOString()}>{formatDate(a.updatedAt)}</time></span>}
+    </div>
+
+    {a.ruleChanged && (
+      <div class="changed">
+        ⚠ Правило изменилось.{" "}
+        {newer ? <>Смотрите новую версию: <a href={`${base}${newer.slug}/`}>{newer.title}</a></> : "Новая версия ролика готовится — проверяйте цифры по источникам ниже."}
+      </div>
     )}
 
-    <article class="narrow">
-      <h1>{a.title}</h1>
-      <div class="meta">
-        {a.audience.map((x) => <span class="tag">{audienceTitle(x)}</span>)}
-        {a.actualDate && <span class="actual">Актуально на {formatDate(a.actualDate)}</span>}
-      </div>
-
-      {a.ruleChanged && (
-        <div class="changed">
-          ⚠ Правило изменилось.{" "}
-          {newer ? <>Смотрите новую версию: <a href={`${base}${newer.slug}/`}>{newer.title}</a></> : "Новая версия ролика готовится — проверяйте цифры по источникам ниже."}
+    {(a.videoFile || player) && (
+      <figure class="player">
+        <div class="frame">
+          {a.videoFile ? (
+            <video src={a.videoFile} poster={a.poster ?? undefined} controls playsinline preload="metadata" title={`Ролик: ${a.title}`}></video>
+          ) : (
+            // Плеер площадки грузится только по нажатию: страница открывается быстрее.
+            <button class="facade" type="button" data-embed={player} aria-label={`Смотреть ролик: ${a.title}`}>
+              <img src={`${base}og/${a.slug}-v.png`} alt="" width="720" height="1280" loading="eager" decoding="async" fetchpriority="high" />
+              <span class="play" aria-hidden="true"></span>
+            </button>
+          )}
         </div>
-      )}
-
-      {a.summary ? (
-        <dl class="short">
-          {a.summary.essence && <><dt>Суть</dt><dd>{a.summary.essence}</dd></>}
-          {a.summary.todo && <><dt>Что сделать</dt><dd>{a.summary.todo}</dd></>}
-          {a.summary.deadline && <><dt>Срок</dt><dd>{a.summary.deadline}</dd></>}
-        </dl>
-      ) : null}
-
-      {a.blocks.map((b) => (b.kind === "h" ? <h2>{b.text}</h2> : <p>{b.text}</p>))}
-
-      {a.sources.length > 0 && (
-        <>
-          <h2>Ключевые факты и источники</h2>
-          <ul class="facts">
-            {a.sources.map((s) => (
-              <li>
-                {s.fact}
-                <span class="src">
-                  {s.source ? (/^https?:\/\//.test(s.source) ? <a href={s.source} rel="noopener nofollow" target="_blank">{s.source}</a> : s.source) : "источник уточняется"}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {a.actualDate && <p><span class="actual">Актуально на {formatDate(a.actualDate)}</span></p>}
-        </>
-      )}
-
-      <div class="share" data-share data-url={pageUrl} data-title={a.title}>
-        <button class="btn" type="button" data-share-btn>Поделиться</button>
-        <input type="text" readonly value={shortUrl} aria-label="Короткая ссылка" />
-        <button class="btn ghost" type="button" data-copy={shortUrl}>Скопировать</button>
+      </figure>
+    )}
+    {a.videos.length > 0 && (
+      <div class="watch">
+        <span class="note">Этот ролик на площадках:</span>
+        {a.videos.map((v) => <a href={v.url} rel="noopener" target="_blank">{PLATFORM_LABEL[v.platform] ?? v.platform}</a>)}
       </div>
+    )}
 
-      <p class="note">{SITE.disclaimer}</p>
-    </article>
-  </div>
+    {a.summary ? (
+      <dl class="short">
+        {a.summary.essence && <><dt>Суть</dt><dd>{a.summary.essence}</dd></>}
+        {a.summary.todo && <><dt>Что сделать</dt><dd>{a.summary.todo}</dd></>}
+        {a.summary.deadline && <><dt>Срок</dt><dd>{a.summary.deadline}</dd></>}
+      </dl>
+    ) : null}
+
+    {a.blocks.map((b) => (b.kind === "h" ? <h2>{b.text}</h2> : <p>{b.text}</p>))}
+
+    {a.sources.length > 0 && (
+      <>
+        <h2>Ключевые факты и источники</h2>
+        <ul class="facts">
+          {a.sources.map((s) => (
+            <li>
+              {s.fact}
+              <span class="src">
+                {s.source ? (/^https?:\/\//.test(s.source) ? <a href={s.source} rel="noopener nofollow" target="_blank">{s.source}</a> : s.source) : "источник уточняется"}
+              </span>
+            </li>
+          ))}
+        </ul>
+        {a.actualDate && <p><span class="actual">Актуально на {formatDate(a.actualDate)}</span></p>}
+      </>
+    )}
+
+    {a.faq.length > 0 && (
+      <section>
+        <h2>Частые вопросы</h2>
+        {a.faq.map((f) => (
+          <details class="faq">
+            <summary>{f.q}</summary>
+            <p>{f.a}</p>
+          </details>
+        ))}
+      </section>
+    )}
+
+    {a.tags.length > 0 && (
+      <nav class="chips" aria-label="Темы">
+        {a.tags.map((t) => <a class="chip" href={`${base}tema/${t.slug}/`} rel="tag">{t.name}</a>)}
+      </nav>
+    )}
+
+    <div class="share" data-share data-url={pageUrl} data-title={a.title}>
+      <button class="btn" type="button" data-share-btn>Поделиться</button>
+      <input type="text" readonly value={shortUrl} aria-label="Короткая ссылка" />
+      <button class="btn ghost" type="button" data-copy={shortUrl}>Скопировать</button>
+    </div>
+
+    <p class="note">{SITE.disclaimer}</p>
+  </article>
 
   {more.length > 0 && (
     <section>
@@ -132,6 +187,19 @@ if (player) {
 </Base>
 
 <script>
+  document.querySelectorAll<HTMLButtonElement>("button.facade[data-embed]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const url = new URL(btn.dataset.embed!);
+      url.searchParams.set("autoplay", "1");
+      const frame = document.createElement("iframe");
+      frame.src = url.href;
+      frame.title = btn.getAttribute("aria-label") ?? "Ролик";
+      frame.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+      frame.allowFullscreen = true;
+      btn.replaceWith(frame);
+    }),
+  );
+
   // «Поделиться» (FR-L07): на телефоне открывается системное меню, на компьютере — ВКонтакте/Telegram.
   document.querySelectorAll<HTMLElement>("[data-share]").forEach((box) => {
     const url = box.dataset.url!;

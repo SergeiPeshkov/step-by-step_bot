@@ -267,5 +267,7 @@ class Article(Base):
     body: Mapped[str] = mapped_column(Text)
     sources_json: Mapped[str] = mapped_column(Text, default="[]")
     videos_json: Mapped[str] = mapped_column(Text, default="[]")
+    # SEO для сайта: seo_title, description, tags, faq, summary (JSON, пишет ИИ после текста статьи)
+    seo_json: Mapped[str] = mapped_column(Text, default="{}")
     actual_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

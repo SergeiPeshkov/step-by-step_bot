@@ -229,6 +229,11 @@ async def _video_action(q, context, vid: int, action: str) -> None:
             await q.message.reply_text("Пишу статью для сайта по сценарию и проверенным фактам…")
             art = await articles.generate(db, video)
             await _send_article(q.message, art)
+            from app.services.site import auto_update
+
+            res = await auto_update(db)
+            if res:
+                await q.message.reply_text(("🌐 " if res.ok else "⚠️ ") + res.text[:3900])
             return
         if action == "gs":
             await q.message.reply_text("Пишу сценарий…")
@@ -397,6 +402,9 @@ async def _send_article(message, art) -> None:
     buf = BytesIO(text.encode("utf-8"))
     buf.name = f"{art.slug}.txt"
     note = f"Статья «{art.title}». Адрес страницы: {art.slug}"
+    tags = articles.hashtags(art)
+    if tags:
+        note += f"\nХэштеги для постов: {tags}"
     missing = articles.missing_sources(art)
     if missing:
         note += f"\n⚠ У {missing} факт(ов) нет источника — добавьте его на этапе «Факты» и пересоздайте статью."

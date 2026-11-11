@@ -1,0 +1,13 @@
+---
+import Base from "../../layouts/Base.astro";
+import { allTags } from "../../lib/articles";
+const base = import.meta.env.BASE_URL;
+const tags = allTags();
+---
+<Base title="Темы" description="Все темы «По полочкам»: налоги, вычеты, пособия, ЖКХ, ИП, самозанятость и другие — короткие ролики и статьи простыми словами.">
+  <nav class="crumbs" aria-label="Навигационная цепочка"><a href={base}>Главная</a></nav>
+  <h1>Темы</h1>
+  {tags.length ? (
+    <div class="chips">{tags.map((t) => <a class="chip" href={`${base}tema/${t.slug}/`}>{t.name} <span class="note">{t.articles.length}</span></a>)}</div>
+  ) : <p class="empty">Темы появятся вместе с первыми статьями.</p>}
+</Base>

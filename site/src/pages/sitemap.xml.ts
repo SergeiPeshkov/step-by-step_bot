@@ -1,6 +1,6 @@
 // Карта сайта для Яндекса и других поисковиков.
 import type { APIContext } from "astro";
-import { ARTICLES, HAS_SHELVES, usedShelves } from "../lib/articles";
+import { ARTICLES, HAS_SHELVES, allTags, usedShelves } from "../lib/articles";
 import { RESERVED } from "../lib/reserved";
 
 export function GET({ site }: APIContext) {
@@ -8,9 +8,12 @@ export function GET({ site }: APIContext) {
   const rows: { loc: string; lastmod?: string }[] = [
     { loc: u("") },
     ...(HAS_SHELVES ? [{ loc: u("polka/") }] : []),
+    { loc: u("voprosy/") },
     { loc: u("izmeneniya/") },
+    ...(allTags().length ? [{ loc: u("tema/") }] : []),
+    ...allTags().filter((t) => t.articles.length >= 2).map((t) => ({ loc: u(`tema/${t.slug}/`) })),
     ...usedShelves().map((s) => ({ loc: u(`polka/${s.id}/`) })),
-    ...ARTICLES.filter((a) => !RESERVED.has(a.slug)).map((a) => ({
+    ...ARTICLES.filter((a) => !RESERVED.has(a.slug) && !a.replacedBy).map((a) => ({
       loc: u(`${a.slug}/`),
       lastmod: (a.updatedAt ?? a.publishedAt)?.toISOString().slice(0, 10),
     })),

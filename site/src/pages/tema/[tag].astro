@@ -1,0 +1,44 @@
+---
+// Страница темы: все вопросы с этим тегом. Это посадочные страницы под общие запросы
+// («налоговый вычет», «самозанятые») и внутренние ссылки между статьями.
+import Base from "../../layouts/Base.astro";
+import Card from "../../components/Card.astro";
+import { allTags } from "../../lib/articles";
+
+export function getStaticPaths() {
+  return allTags().map((t) => ({ params: { tag: t.slug }, props: { t } }));
+}
+const { t } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const name = t.name[0].toUpperCase() + t.name.slice(1);
+const titles = t.articles.slice(0, 3).map((a) => a.title.replace(/[?.]$/, "")).join("; ");
+// Тема с одним вопросом — тонкая страница: ссылки по ней ходят, но в поиск она не идёт.
+const thin = t.articles.length < 2;
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name,
+    url: new URL(`tema/${t.slug}/`, Astro.site).href,
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: t.articles.map((a, i) => ({ "@type": "ListItem", position: i + 1, url: new URL(`${a.slug}/`, Astro.site).href, name: a.title })),
+    },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Главная", item: Astro.site?.href },
+      { "@type": "ListItem", position: 2, name: "Темы", item: new URL("tema/", Astro.site).href },
+      { "@type": "ListItem", position: 3, name, item: new URL(`tema/${t.slug}/`, Astro.site).href },
+    ],
+  },
+];
+---
+<Base title={`${name}: вопросы и ответы простыми словами`} description={`${name} простыми словами: ${titles}. Короткие ролики и статьи, цифры со ссылками на источники.`.slice(0, 160)} jsonLd={jsonLd} noindex={thin}>
+  <nav class="crumbs" aria-label="Навигационная цепочка"><a href={base}>Главная</a> › <a href={`${base}tema/`}>Темы</a></nav>
+  <h1>{name}</h1>
+  <p class="note">Вопросов по теме: {t.articles.length}</p>
+  <div class="cards">{t.articles.map((a) => <Card a={a} />)}</div>
+</Base>
