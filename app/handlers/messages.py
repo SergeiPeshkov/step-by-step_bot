@@ -6,7 +6,9 @@ from telegram.ext import ContextTypes
 from app.access import guard
 from app.enums import AwaitKind, SceneUse, VideoStatus
 from app.handlers.common import send_card, send_discussion, session, set_await, state_of
-from app.services import discussion
+from app.keyboards import fact_kb
+from app.models import VideoFact
+from app.services import discussion, facts
 from app.models import Scene, ScriptVersion, Shot, Video, VoicePhrase
 from app.services.brain import BLOCKS, save_block, version_stamp
 from app.handlers.commands import (
@@ -103,6 +105,30 @@ async def on_text_or_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await send_discussion(update.message, video.id, stage, answer)
         except Exception as exc:
             await update.message.reply_text(f"ИИ-сценарист не ответил: {exc}")
+        finally:
+            db.close()
+        return
+    if st.awaiting in (AwaitKind.FACT_EDIT, AwaitKind.FACT_SOURCE, AwaitKind.FACT_ADD) and st.video_id:
+        from app.handlers.common import fact_text
+
+        db = session()
+        try:
+            if st.awaiting == AwaitKind.FACT_ADD:
+                video = db.get(Video, st.video_id)
+                link = facts.add(db, video, text)
+                await update.message.reply_text("Факт добавлен и попадёт в сценарий.")
+            else:
+                link = db.get(VideoFact, int(st.extra or 0))
+                if not link:
+                    set_await(user_id, AwaitKind.NONE)
+                    return
+                if st.awaiting == AwaitKind.FACT_EDIT:
+                    facts.correct(db, link, text)
+                else:
+                    facts.set_source(db, link, text)
+                db.refresh(link)
+            set_await(user_id, AwaitKind.NONE)
+            await update.message.reply_text(fact_text(link), reply_markup=fact_kb(link.id))
         finally:
             db.close()
         return

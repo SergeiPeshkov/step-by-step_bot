@@ -289,15 +289,21 @@ def _write_ass(sheet: dict, dest: Path) -> None:
         "ScriptType: v4.00+",
         "PlayResX: 1080",
         "PlayResY: 1920",
-        "WrapStyle: 2",
+        "WrapStyle: 0",
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
         style,
+        "Style: Badge,DejaVu Sans,34,&H00FFFFFF,&H000000FF,&H00000000,&H96000000,"
+        "1,0,0,0,100,100,0,0,3,10,0,8,40,40,90,1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
+    badge = (sheet.get("badge") or "").strip()
+    if badge:
+        total = max((float(s["end"]) for s in sheet.get("shots") or []), default=0.0)
+        lines.append(f"Dialogue: 1,{_ts(0)},{_ts(total)},Badge,,0,0,0,,{badge}")
     for sub in sheet.get("subtitles") or []:
         start = _ts(sub["start"])
         end = _ts(sub["end"])

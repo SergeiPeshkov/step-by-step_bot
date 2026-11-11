@@ -12,6 +12,7 @@ BOT_COMMANDS = [
     BotCommand("queue", "Очередь публикаций"),
     BotCommand("stats", "Статистика"),
     BotCommand("costs", "Расходы и лимиты"),
+    BotCommand("facts", "База фактов"),
     BotCommand("brain", "Мозг системы"),
     BotCommand("settings", "Настройки"),
 ]
@@ -85,6 +86,15 @@ def card_kb(video: Video) -> InlineKeyboardMarkup:
             ],
             [InlineKeyboardButton("В эталоны", callback_data=f"v:{vid}:ex")],
         ]
+    elif status == VideoStatus.FACTS:
+        rows = [
+            [InlineKeyboardButton("Показать факты", callback_data=f"v:{vid}:fl")],
+            [
+                InlineKeyboardButton("Добавить факт", callback_data=f"v:{vid}:fa"),
+                InlineKeyboardButton("Выписать заново", callback_data=f"v:{vid}:fx"),
+            ],
+            [InlineKeyboardButton("Факты проверены — дальше", callback_data=f"v:{vid}:fn")],
+        ]
     elif status == VideoStatus.VISUAL:
         rows = [
             [InlineKeyboardButton("Обсудить раскадровку", callback_data=f"v:{vid}:dv")],
@@ -148,6 +158,7 @@ def card_kb(video: Video) -> InlineKeyboardMarkup:
 def back_stages(vid: int) -> InlineKeyboardMarkup:
     labels = [
         ("Сценарий", "script"),
+        ("Факты", "facts"),
         ("Обсуждение раскадровки", "visual"),
         ("Раскадровка", "storyboard"),
         ("Промпты", "prompts"),
@@ -156,6 +167,21 @@ def back_stages(vid: int) -> InlineKeyboardMarkup:
     ]
     rows = [[InlineKeyboardButton(t, callback_data=f"bk:{vid}:{st}")] for t, st in labels]
     return InlineKeyboardMarkup(rows)
+
+
+def fact_kb(link_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("✓ Верно", callback_data=f"f:{link_id}:ok"),
+                InlineKeyboardButton("✎ Исправить", callback_data=f"f:{link_id}:ed"),
+            ],
+            [
+                InlineKeyboardButton("Источник", callback_data=f"f:{link_id}:src"),
+                InlineKeyboardButton("✕ Убрать из ролика", callback_data=f"f:{link_id}:rm"),
+            ],
+        ]
+    )
 
 
 def discussion_kb(video_id: int, stage: str) -> InlineKeyboardMarkup:

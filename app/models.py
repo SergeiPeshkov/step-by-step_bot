@@ -76,6 +76,9 @@ class Video(Base):
     publications: Mapped[list["Publication"]] = relationship(back_populates="video", cascade="all, delete-orphan")
     costs: Mapped[list["CostEntry"]] = relationship(back_populates="video", cascade="all, delete-orphan")
     events: Mapped[list["AuditEvent"]] = relationship(back_populates="video", cascade="all, delete-orphan")
+    fact_links: Mapped[list["VideoFact"]] = relationship(
+        back_populates="video", cascade="all, delete-orphan", order_by="VideoFact.id"
+    )
     discussion: Mapped[list["DiscussionMessage"]] = relationship(
         back_populates="video", cascade="all, delete-orphan", order_by="DiscussionMessage.id"
     )
@@ -216,3 +219,37 @@ class UserState(Base):
     video_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     awaiting: Mapped[str] = mapped_column(String(32), default="none")
     extra: Mapped[str] = mapped_column(Text, default="")
+
+
+class Fact(Base):
+    """База фактов: проверенное утверждение, источник и дата проверки. Один факт используется во многих роликах."""
+
+    __tablename__ = "facts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(Text, default="")
+    # pending — ждёт проверки, confirmed — проверен, outdated — устарел (заменён новым)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    checked_at: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    replaced_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("facts.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    links: Mapped[list["VideoFact"]] = relationship(back_populates="fact")
+
+
+class VideoFact(Base):
+    """Какие факты использованы в ролике. original — как факт звучал в сценарии до исправления автором."""
+
+    __tablename__ = "video_facts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id"), index=True)
+    fact_id: Mapped[int] = mapped_column(ForeignKey("facts.id"), index=True)
+    # active — в ролике, removed — автор убрал из ролика
+    state: Mapped[str] = mapped_column(String(16), default="active")
+    original: Mapped[str] = mapped_column(Text, default="")
+    applied: Mapped[bool] = mapped_column(Boolean, default=False)  # правка уже внесена в сценарий
+
+    video: Mapped["Video"] = relationship(back_populates="fact_links")
+    fact: Mapped["Fact"] = relationship(back_populates="links")

@@ -10,8 +10,10 @@ from telegram.ext import ContextTypes
 from app.access import guard
 from app.config import settings
 from app.enums import AwaitKind, SceneUse, VideoStatus
-from app.handlers.common import refresh_card, send_card, send_discussion, session, set_await
-from app.services import discussion
+from app.handlers.common import fact_text, refresh_card, send_card, send_discussion, send_facts, session, set_await
+from app.keyboards import fact_kb
+from app.models import VideoFact
+from app.services import discussion, facts
 from app.keyboards import back_stages, brain_kb, card_kb, scene_list, shot_pick
 from app.models import Scene, ScriptVersion, Shot, Video, VoicePhrase
 from app.services.brain import BLOCKS, dump_all, load_block, version_stamp
@@ -74,6 +76,10 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if data.startswith("sh:"):
             _, vid, sid, action = data.split(":")
             await _shot_action(q, context, int(vid), int(sid), action)
+            return
+        if data.startswith("f:"):
+            _, lid, action = data.split(":")
+            await _fact_action(q, context, int(lid), action)
             return
         if data.startswith("v:"):
             _, vid, action = data.split(":")
@@ -187,6 +193,37 @@ async def _video_action(q, context, vid: int, action: str) -> None:
             set_await(q.from_user.id, AwaitKind.NONE, vid)
             await send_card(q.message, video, context)
             return
+        if action == "fl":
+            await send_facts(q.message, video)
+            return
+        if action == "fa":
+            set_await(q.from_user.id, AwaitKind.FACT_ADD, vid)
+            await q.message.reply_text("Напишите факт, который нужно добавить в ролик (например, «первый взнос — от 20%»).")
+            return
+        if action == "fx":
+            await q.message.reply_text("ИИ заново выписывает факты из сценария…")
+            await facts.extract(db, video)
+            await send_facts(q.message, video)
+            await send_card(q.message, video, context)
+            return
+        if action == "fn":
+            pending = facts.pending_links(video)
+            if pending:
+                await q.message.reply_text(
+                    f"Дальше пока нельзя: {len(pending)} факт(ов) ждут проверки. Отметьте каждый: верно, исправить или убрать."
+                )
+                await send_facts(q.message, video, only_pending=True)
+                return
+            if facts.script_changes(video):
+                await q.message.reply_text("Вношу исправленные факты в сценарий…")
+                ver = await facts.apply_to_script(db, video)
+                if ver:
+                    await q.message.reply_text(f"Сценарий поправлен под факты:\n\n{ver.text[:3800]}")
+            else:
+                await facts.apply_to_script(db, video)
+            await _start_visual(q, db, video)
+            await send_card(q.message, video, context)
+            return
         if action == "gs":
             await q.message.reply_text("Пишу сценарий…")
             await generate_script(db, video)
@@ -280,13 +317,13 @@ async def _approve(q, context, db, video: Video) -> None:
         script = latest_script(video)
         if script:
             script.approved = True
-        set_await(q.from_user.id, AwaitKind.DISCUSS_VISUAL, video.id)
+        await q.message.reply_text("Сценарий утверждён. Проверка фактов: ИИ выписывает из сценария цифры, даты и условия…")
+        await facts.extract(db, video)
+        await send_facts(q.message, video)
         await q.message.reply_text(
-            "Сценарий утверждён. Этап 2: обсуждаем с ИИ-сценаристом раскадровку и промпты. "
-            "Пишите прямо в чат, когда договоритесь — нажмите «Сделать раскадровку и промпты»."
+            "Отметьте каждый факт: «Верно», «Исправить» или «Убрать». Источник можно указать или поправить. "
+            "Когда всё проверено — «Факты проверены — дальше» в карточке."
         )
-        answer = await discussion.start(db, video, discussion.VISUAL)
-        await send_discussion(q.message, video.id, discussion.VISUAL, answer)
     elif st == VideoStatus.STORYBOARD:
         await generate_prompts(db, video)
         await q.message.reply_text("Промпты готовы. Можно сразу генерировать или посмотреть.")
@@ -302,6 +339,51 @@ async def _approve(q, context, db, video: Video) -> None:
         path = await assemble(db, video)
         await q.message.reply_video(video=open(path, "rb"), supports_streaming=True, caption="Превью. Публикация только по вашей кнопке.")
     db.commit()
+
+
+async def _start_visual(q, db, video: Video) -> None:
+    set_await(q.from_user.id, AwaitKind.DISCUSS_VISUAL, video.id)
+    await q.message.reply_text(
+        "Факты проверены. Этап 2: обсуждаем с ИИ-сценаристом раскадровку и промпты. "
+        "Пишите прямо в чат, когда договоритесь — нажмите «Сделать раскадровку и промпты»."
+    )
+    answer = await discussion.start(db, video, discussion.VISUAL)
+    await send_discussion(q.message, video.id, discussion.VISUAL, answer)
+
+
+async def _fact_action(q, context, link_id: int, action: str) -> None:
+    db = session()
+    try:
+        link = db.get(VideoFact, link_id)
+        if not link:
+            await q.message.reply_text("Факт не найден. Откройте карточку ролика.")
+            return
+        if action == "ok":
+            facts.confirm(db, link)
+        elif action == "rm":
+            facts.remove(db, link)
+        elif action == "ed":
+            set_await(q.from_user.id, AwaitKind.FACT_EDIT, link.video_id, str(link.id))
+            await q.message.reply_text(f"Сейчас: {link.fact.text}\n\nНапишите верный вариант факта.")
+            return
+        elif action == "src":
+            set_await(q.from_user.id, AwaitKind.FACT_SOURCE, link.video_id, str(link.id))
+            await q.message.reply_text(
+                f"Источник сейчас: {link.fact.source or 'не указан'}\n\nПришлите ссылку или название документа."
+            )
+            return
+        db.refresh(link)
+        try:
+            await q.edit_message_text(fact_text(link), reply_markup=fact_kb(link.id))
+        except Exception:
+            pass
+        video = db.get(Video, link.video_id)
+        left = len(facts.pending_links(video))
+        if left == 0 and action == "ok":
+            await q.message.reply_text("Все факты проверены. Нажмите «Факты проверены — дальше» в карточке.")
+            await send_card(q.message, video, context)
+    finally:
+        db.close()
 
 
 async def _publish_now(q, context, db, video: Video) -> None:

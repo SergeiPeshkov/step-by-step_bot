@@ -4,7 +4,7 @@ from telegram import Message
 from telegram.ext import ContextTypes
 
 from app.db import SessionLocal
-from app.keyboards import card_kb, discussion_kb
+from app.keyboards import card_kb, discussion_kb, fact_kb
 from app.cards import card_text
 from app.models import UserState, Video
 
@@ -53,6 +53,8 @@ async def send_card(message: Message, video: Video, context: ContextTypes.DEFAUL
         _ = v.scripts
         _ = v.shots
         _ = v.discussion
+        for link in v.fact_links:
+            _ = link.fact
         text = card_text(v)
         kb = card_kb(v)
         sent = await message.reply_text(text[:3900], reply_markup=kb)
@@ -70,6 +72,40 @@ async def send_discussion(message: Message, video_id: int, stage: str, text: str
     for i, chunk in enumerate(chunks):
         last = i == len(chunks) - 1
         await message.reply_text(chunk, reply_markup=discussion_kb(video_id, stage) if last else None)
+
+
+FACT_STATUS = {"pending": "ждёт проверки", "confirmed": "проверен", "outdated": "устарел"}
+
+
+def fact_text(link) -> str:
+    fact = link.fact
+    if link.state == "removed":
+        status = "убран из ролика"
+    else:
+        status = FACT_STATUS.get(fact.status, fact.status)
+        if fact.status == "confirmed" and fact.checked_at:
+            status += f" {fact.checked_at:%d.%m.%Y}"
+    lines = [f"Факт: {fact.text}", f"Источник: {fact.source or 'не указан'}", f"Статус: {status}"]
+    if link.original and link.original != fact.text:
+        lines.append(f"В сценарии сейчас: {link.original}")
+    return "\n".join(lines)
+
+
+async def send_facts(message: Message, video: Video, only_pending: bool = False) -> None:
+    """Каждый факт — отдельным сообщением с кнопками. Уже проверенные факты из базы — одним списком."""
+    links = [l for l in video.fact_links if l.state == "active"]
+    known = [l for l in links if l.fact.status == "confirmed" and l.applied and l.original == l.fact.text]
+    todo = [l for l in links if l not in known] if only_pending else [l for l in video.fact_links if l not in known]
+    if not links and not todo:
+        await message.reply_text("Фактов в сценарии не найдено. Можно добавить свой или идти дальше.")
+        return
+    if known:
+        await message.reply_text(
+            "Уже проверены раньше (взяты из базы):\n"
+            + "\n".join(f"• {l.fact.text} — {l.fact.checked_at:%d.%m.%Y}" for l in known if l.fact.checked_at)
+        )
+    for l in todo:
+        await message.reply_text(fact_text(l), reply_markup=fact_kb(l.id))
 
 
 async def refresh_card(context: ContextTypes.DEFAULT_TYPE, video: Video) -> None:
