@@ -1,0 +1,37 @@
+from app.enums import STATUS_LABEL, VideoStatus
+from app.models import Video
+from app.services.checker import check_script
+from app.services.pipeline import latest_script, title_of
+
+
+def card_text(video: Video) -> str:
+    title = title_of(video)
+    stale = f"\n⚠ Устарело с этапа: {STATUS_LABEL.get(video.stale_from, video.stale_from)}" if video.stale_from else ""
+    script = latest_script(video)
+    preview = ""
+    if script:
+        body = script.text[:700] + ("…" if len(script.text) > 700 else "")
+        warns = check_script(script.text)
+        warn_txt = "\n".join(f"• {w}" for w in warns)
+        preview = f"\n\n{body}"
+        if warn_txt:
+            preview += f"\n\nПредупреждения (решение за вами):\n{warn_txt}"
+    shots = ""
+    if video.shots and video.status in {
+        VideoStatus.STORYBOARD,
+        VideoStatus.PROMPTS,
+        VideoStatus.MEDIA,
+        VideoStatus.VOICE,
+        VideoStatus.ASSEMBLY,
+    }:
+        lines = []
+        for s in video.shots:
+            mark = " *" if s.stale else ""
+            lines.append(f"{s.ord}. {s.start:.0f}–{s.end:.0f}с {s.shot_type}{mark}: {s.description[:60]}")
+        shots = "\n\nКадры:\n" + "\n".join(lines)
+    return (
+        f"Ролик #{video.id}\n{title}\n"
+        f"Статус: {STATUS_LABEL.get(video.status, video.status)}\n"
+        f"Мозг: v{video.brain_version} · расход: {video.cost:.1f} ₽"
+        f"{stale}{preview}{shots}"
+    )
