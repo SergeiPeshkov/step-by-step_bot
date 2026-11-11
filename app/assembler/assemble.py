@@ -173,6 +173,9 @@ def _prepare_shot(shot: dict, index: int, dest: Path, w: int, h: int, fps: int) 
         )
         return dest
 
+    if stype == "outro":
+        return _prepare_outro(shot, index, dest, w, h, fps, duration)
+
     src = Path(shot["file"])
     effect = shot.get("effect") or "zoom_in"
     if src.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
@@ -251,8 +254,43 @@ def _prepare_shot(shot: dict, index: int, dest: Path, w: int, h: int, fps: int) 
     return dest
 
 
+def _prepare_outro(shot: dict, index: int, dest: Path, w: int, h: int, fps: int, duration: float) -> Path:
+    """Фирменная концовка: подгоняем под 9:16 и длину, сверху — адрес сайта, если он задан."""
+    vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps={fps}"
+    text = (shot.get("text") or "").strip()
+    if text:
+        text_file = dest.with_suffix(".txt")
+        text_file.write_text(text, encoding="utf-8")
+        arg = text_file.resolve().as_posix().replace(":", r"\:")
+        vf += (
+            f",drawtext={_font_option()}textfile='{arg}':expansion=none:fontcolor=white:fontsize=60:"
+            "box=1:boxcolor=black@0.45:boxborderw=24:x=(w-text_w)/2:y=h*0.78"
+        )
+    _run(
+        [
+            ffmpeg_bin(), "-y", "-i", str(shot["file"]), "-t", f"{duration:.3f}",
+            "-vf", vf, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an", str(dest),
+        ],
+        index,
+    )
+    return dest
+
+
+def _has_audio(path: Path) -> bool:
+    proc = subprocess.run(
+        [ffprobe_bin(), "-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", str(path)],
+        capture_output=True,
+        text=True,
+    )
+    return bool(proc.stdout.strip())
+
+
 def _mix_audio(sheet: dict, video: Path, dest: Path, work_dir: Path) -> None:
-    voices = sheet.get("voice") or []
+    voices = list(sheet.get("voice") or [])
+    # Звук фирменной концовки идёт вместе с голосом, со своего места на таймлайне.
+    for shot in sheet.get("shots") or []:
+        if shot.get("type") == "outro" and shot.get("file") and _has_audio(Path(shot["file"])):
+            voices.append({"start": shot["start"], "file": shot["file"], "trim": float(shot["end"]) - float(shot["start"])})
     music = sheet.get("music") or {}
     inputs = ["-i", str(video)]
     filters = []
@@ -264,7 +302,8 @@ def _mix_audio(sheet: dict, video: Path, dest: Path, work_dir: Path) -> None:
             continue
         inputs += ["-i", str(path)]
         delay_ms = int(float(v.get("start", 0)) * 1000)
-        filters.append(f"[{idx}:a]adelay={delay_ms}|{delay_ms},volume=1.0[v{idx}]")
+        trim = f"atrim=0:{float(v['trim']):.3f}," if v.get("trim") else ""
+        filters.append(f"[{idx}:a]{trim}adelay={delay_ms}|{delay_ms},volume=1.0[v{idx}]")
         voice_labels.append(f"[v{idx}]")
         idx += 1
 
@@ -322,7 +361,7 @@ def _write_ass(sheet: dict, dest: Path) -> None:
     ]
     badge = (sheet.get("badge") or "").strip()
     if badge:
-        total = max((float(s["end"]) for s in sheet.get("shots") or []), default=0.0)
+        total = max((float(s["end"]) for s in sheet.get("shots") or [] if s.get("type") != "outro"), default=0.0)
         lines.append(f"Dialogue: 1,{_ts(0)},{_ts(total)},Badge,,0,0,0,,{badge}")
     for sub in sheet.get("subtitles") or []:
         start = _ts(sub["start"])

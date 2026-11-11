@@ -243,10 +243,28 @@ def build_sheet(video: Video) -> dict:
                 "dirty": s.stale,
             }
         )
-    if settings.site_url and shots:
+    domain = re.sub(r"^https?://", "", settings.site_url).rstrip("/") if settings.site_url else ""
+    outro = settings.outro_path
+    if shots and outro and outro.is_file():
+        # Фирменная концовка из файла; адрес сайта бот накладывает поверх неё.
+        from app.assembler.assemble import _duration
+
+        end = max(float(s["end"]) for s in shots)
+        length = min(_duration(outro) or settings.outro_max_seconds, settings.outro_max_seconds)
+        shots.append(
+            {
+                "start": end,
+                "end": round(end + length, 2),
+                "type": "outro",
+                "file": str(outro),
+                "effect": "none",
+                "text": domain,
+                "dirty": True,
+            }
+        )
+    elif settings.site_url and shots:
         # Финальная карточка со ссылкой на сайт: добавляется автоматически, в сценарии её писать не нужно.
         end = max(float(s["end"]) for s in shots)
-        domain = re.sub(r"^https?://", "", settings.site_url).rstrip("/")
         shots.append(
             {
                 "start": end,

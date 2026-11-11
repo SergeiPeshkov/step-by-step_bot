@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     site_url: str = ""
     site_card_text: str = "Подробнее — на сайте"
     site_card_seconds: float = 2.5
+    # Фирменная концовка: вертикальное видео 9:16, добавляется в конец каждого ролика, если файл есть.
+    # Поверх неё бот пишет адрес сайта из SITE_URL (если задан).
+    outro_path: Path = ROOT / "data" / "brand" / "outro.mp4"
+    outro_max_seconds: float = 4.0
     hashtags: str = "#пополочкам"
 
     daily_cost_limit: float = 500
@@ -89,4 +93,5 @@ settings = Settings()
 settings.storage_dir.mkdir(parents=True, exist_ok=True)
 settings.music_dir.mkdir(parents=True, exist_ok=True)
 settings.ritual_dir.mkdir(parents=True, exist_ok=True)
+settings.outro_path.parent.mkdir(parents=True, exist_ok=True)
 (ROOT / "data" / "fonts").mkdir(parents=True, exist_ok=True)
