@@ -35,6 +35,10 @@ SYSTEM = (
     "Других цифр и дат не добавляй. Если чего-то нет в фактах, не утверждай этого.\n"
     "- Объясняй, а не советуй. Без названий банков, без оценок «выгодно».\n"
     "- Простые слова, короткие абзацы, обращение на «вы».\n"
+    "- Первый абзац сразу и коротко отвечает на вопрос из темы — так ответ видят в поиске.\n"
+    "- Подзаголовки — вопросы и фразы, которыми люди ищут в Яндексе: «Кто может получить вычет», "
+    "«Какие документы нужны», «Сроки». 3–5 подзаголовков.\n"
+    "- Естественно используй разные формулировки темы, как их пишут в поиске (без повторов ради повторов).\n"
     "- Только простой текст без разметки: без #, *, списков с символами и ссылок. "
     "Абзацы разделяй пустой строкой. Подзаголовок — отдельная короткая строка.\n"
     "- Обычно 300–700 слов.\n"
@@ -49,6 +53,60 @@ _TRANSLIT = dict(
          "u", "f", "kh", "ts", "ch", "sh", "shch", "", "y", "", "e", "yu", "ya"],
     )
 )
+
+
+SEO_SYSTEM = (
+    "SEO для статьи сайта «По полочкам» (законы простыми словами, поиск — в первую очередь Яндекс).\n"
+    "По теме и тексту статьи верни JSON без пояснений:\n"
+    "{\n"
+    '  "seo_title": "заголовок для поиска до 60 знаков: главный запрос в начале, без названия сайта",\n'
+    '  "description": "описание для выдачи 120–160 знаков: ответ по сути и что человек узнает",\n'
+    '  "tags": ["3–6 тем строчными буквами, 1–3 слова: как люди называют тему в поиске, например «налоговый вычет», «самозанятые»"],\n'
+    '  "faq": [{"q": "уточняющий вопрос, как его ищут", "a": "ответ 1–3 предложения"}],\n'
+    '  "summary": {"essence": "суть в 1–2 предложениях", "todo": "что сделать", "deadline": "срок, если есть в статье, иначе пусто"}\n'
+    "}\n"
+    "Правила: faq — 2–4 вопроса, которые статья ещё не отвечает прямо в подзаголовках, но ответ есть в тексте. "
+    "Все цифры, суммы и сроки — только из текста статьи, ничего не добавляй. Без названий банков и без советов «выгодно»."
+)
+
+
+def _seo_clean(raw: str) -> dict:
+    """Разбирает ответ ИИ; всё сомнительное отбрасывает, чтобы сайт не получил мусор."""
+    m = re.search(r"\{.*\}", raw, re.S)
+    try:
+        data = json.loads(m.group(0)) if m else {}
+    except json.JSONDecodeError:
+        return {}
+    out: dict = {}
+    t = str(data.get("seo_title") or "").strip()
+    if 10 <= len(t) <= 80:
+        out["seo_title"] = t
+    d = str(data.get("description") or "").strip()
+    if 50 <= len(d) <= 220:
+        out["description"] = d
+    tags = []
+    for tag in data.get("tags") or []:
+        tag = str(tag).strip().lstrip("#").lower()
+        if 2 <= len(tag) <= 40 and len(tag.split()) <= 4 and tag not in tags:
+            tags.append(tag)
+    if tags:
+        out["tags"] = tags[:6]
+    faq = [
+        {"q": str(x.get("q", "")).strip(), "a": str(x.get("a", "")).strip()}
+        for x in data.get("faq") or []
+        if isinstance(x, dict) and x.get("q") and x.get("a")
+    ]
+    if faq:
+        out["faq"] = faq[:4]
+    s = data.get("summary")
+    if isinstance(s, dict) and (s.get("essence") or s.get("todo")):
+        out["summary"] = {k: str(s.get(k) or "").strip() for k in ("essence", "todo", "deadline")}
+    return out
+
+
+async def generate_seo(title: str, body: str) -> dict:
+    raw = await get_writer_adapter().complete(SEO_SYSTEM, f"Тема: {title}\n\nСтатья:\n{body}")
+    return _seo_clean(raw)
 
 
 def slugify(title: str) -> str:
@@ -107,6 +165,10 @@ async def generate(session: Session, video: Video) -> Article:
     article.body = body
     article.sources_json = json.dumps(sources, ensure_ascii=False)
     article.videos_json = json.dumps(_videos(video), ensure_ascii=False)
+    try:
+        article.seo_json = json.dumps(await generate_seo(title, body), ensure_ascii=False)
+    except Exception:  # SEO не должен мешать статье
+        article.seo_json = "{}"
     article.actual_date = actual_date(video)
     article.updated_at = datetime.utcnow()
     audit(session, video, "article")
@@ -138,6 +200,19 @@ def as_text(article: Article) -> str:
     return "\n\n".join(p.strip() for p in parts if p and p.strip()) + "\n"
 
 
+def _seo(article: Article) -> dict:
+    try:
+        return json.loads(article.seo_json or "{}")
+    except json.JSONDecodeError:
+        return {}
+
+
+def hashtags(article: Article, limit: int = 5) -> str:
+    """Хэштеги для постов в соцсетях из тегов статьи: «налоговый вычет» → #налоговыйвычет."""
+    tags = _seo(article).get("tags") or []
+    return " ".join("#" + re.sub(r"[^\wё]+", "", t, flags=re.I) for t in tags[:limit] if t)
+
+
 def as_dict(article: Article) -> dict:
     return {
         "id": article.id,
@@ -147,6 +222,7 @@ def as_dict(article: Article) -> dict:
         "body": article.body,
         "videos": json.loads(article.videos_json or "[]"),
         "sources": json.loads(article.sources_json or "[]"),
+        **_seo(article),
         "actual_date": article.actual_date.isoformat() if article.actual_date else None,
         "updated_at": article.updated_at.isoformat() if article.updated_at else None,
     }

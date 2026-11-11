@@ -402,6 +402,9 @@ async def _send_article(message, art) -> None:
     buf = BytesIO(text.encode("utf-8"))
     buf.name = f"{art.slug}.txt"
     note = f"Статья «{art.title}». Адрес страницы: {art.slug}"
+    tags = articles.hashtags(art)
+    if tags:
+        note += f"\nХэштеги для постов: {tags}"
     missing = articles.missing_sources(art)
     if missing:
         note += f"\n⚠ У {missing} факт(ов) нет источника — добавьте его на этапе «Факты» и пересоздайте статью."

@@ -9,7 +9,7 @@ export function GET() {
     l: a.lead,
     h: a.shelf.id === "raznoe" ? "" : a.shelf.title,
     a: a.audience,
-    x: [a.summary?.essence, a.summary?.todo, a.plain.slice(0, 3000)].filter(Boolean).join(" "),
+    x: [a.tags.map((t) => t.name).join(" "), ...a.faq.map((f) => f.q), a.summary?.essence, a.summary?.todo, a.plain.slice(0, 3000)].filter(Boolean).join(" "),
     c: a.ruleChanged ? 1 : 0,
   }));
   return new Response(JSON.stringify(items), { headers: { "Content-Type": "application/json; charset=utf-8" } });

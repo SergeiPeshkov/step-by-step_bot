@@ -44,6 +44,7 @@ const jsonLd: any[] = [
     author: SITE.author ? { "@type": "Person", name: SITE.author } : org,
     publisher: org,
     isAccessibleForFree: true,
+    ...(a.tags.length ? { keywords: a.tags.map((t) => t.name).join(", "), about: a.tags.map((t) => ({ "@type": "Thing", name: t.name })) } : {}),
     ...(a.sources.some((s) => s.source && /^https?:/.test(s.source))
       ? { citation: a.sources.filter((s) => s.source && /^https?:/.test(s.source)).map((s) => s.source) }
       : {}),
@@ -51,7 +52,10 @@ const jsonLd: any[] = [
   {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: [{ "@type": "Question", name: a.title, acceptedAnswer: { "@type": "Answer", text: shortAnswer(a) } }],
+    mainEntity: [
+      { "@type": "Question", name: a.title, acceptedAnswer: { "@type": "Answer", text: shortAnswer(a) } },
+      ...a.faq.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
+    ],
   },
   {
     "@context": "https://schema.org",
@@ -80,7 +84,7 @@ if (a.videoFile || player) {
   });
 }
 ---
-<Base title={a.title} description={description} jsonLd={jsonLd} image={ogImage} type="article" canonical={canonical} published={a.publishedAt} modified={a.updatedAt}>
+<Base title={a.seoTitle ?? a.title} description={description} jsonLd={jsonLd} image={ogImage} type="article" canonical={canonical} published={a.publishedAt} modified={a.updatedAt}>
   <nav class="crumbs" aria-label="Навигационная цепочка"><a href={base}>Главная</a> › {HAS_SHELVES ? <a href={`${base}polka/${a.shelf.id}/`}>{a.shelf.title}</a> : <a href={`${base}voprosy/`}>Все вопросы</a>}</nav>
 
   <article class="narrow">
@@ -145,6 +149,24 @@ if (a.videoFile || player) {
         </ul>
         {a.actualDate && <p><span class="actual">Актуально на {formatDate(a.actualDate)}</span></p>}
       </>
+    )}
+
+    {a.faq.length > 0 && (
+      <section>
+        <h2>Частые вопросы</h2>
+        {a.faq.map((f) => (
+          <details class="faq">
+            <summary>{f.q}</summary>
+            <p>{f.a}</p>
+          </details>
+        ))}
+      </section>
+    )}
+
+    {a.tags.length > 0 && (
+      <nav class="chips" aria-label="Темы">
+        {a.tags.map((t) => <a class="chip" href={`${base}tema/${t.slug}/`} rel="tag">{t.name}</a>)}
+      </nav>
     )}
 
     <div class="share" data-share data-url={pageUrl} data-title={a.title}>

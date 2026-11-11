@@ -5,7 +5,8 @@ import "@fontsource/golos-text/700.css";
 import "@fontsource/pt-serif/700.css";
 import "../styles/global.css";
 import { SITE } from "../config";
-import { HAS_SHELVES } from "../lib/articles";
+import { HAS_SHELVES, allTags } from "../lib/articles";
+const HAS_TAGS = allTags().length > 0;
 
 interface Props {
   title: string;
@@ -76,6 +77,7 @@ const base = import.meta.env.BASE_URL;
         <nav class="nav" aria-label="Разделы сайта">
           {HAS_SHELVES && <a href={`${base}polka/`}>Полки</a>}
           <a href={`${base}voprosy/`}>Все вопросы</a>
+          {HAS_TAGS && <a href={`${base}tema/`}>Темы</a>}
           <a href={`${base}izmeneniya/`}>Что изменилось</a>
           <a href={`${base}poisk/`}>Поиск</a>
           <a href={`${base}predlozhit-temu/`}>Предложить тему</a>
