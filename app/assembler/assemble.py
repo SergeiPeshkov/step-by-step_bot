@@ -158,7 +158,7 @@ def _prepare_shot(shot: dict, index: int, dest: Path, w: int, h: int, fps: int) 
     if src.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
         frames = max(int(duration * fps), 2)
         if effect == "pan":
-            zoom = "zoompan=z=1.08:x='iw*0.04*on/duration':y='ih*0.02':d={frames}:s={w}x{h}:fps={fps}"
+            zoom = f"zoompan=z=1.08:x='iw*0.04*on/{frames}':y='ih*0.02':d={frames}:s={w}x{h}:fps={fps}"
         else:
             zoom = f"zoompan=z='min(zoom+0.0008,1.12)':d={frames}:s={w}x{h}:fps={fps}"
         vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},{zoom}"

@@ -21,7 +21,7 @@ def bootstrap() -> None:
     db = SessionLocal()
     try:
         if not db.scalar(select(Channel).limit(1)):
-            db.add(Channel(name="Смотри глубже", brain_version=version_stamp()))
+            db.add(Channel(name="По полочкам", brain_version=version_stamp()))
             db.commit()
     finally:
         db.close()

@@ -11,7 +11,7 @@ class Channel(Base):
     __tablename__ = "channels"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(120), default="Смотри глубже")
+    name: Mapped[str] = mapped_column(String(120), default="По полочкам")
     language: Mapped[str] = mapped_column(String(8), default="ru")
     brain_version: Mapped[str] = mapped_column(String(32), default="1")
     settings_json: Mapped[str] = mapped_column(Text, default="{}")

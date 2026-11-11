@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+data/storage/
+data/db.sqlite3
+data/db.sqlite3-journal
+*.log
+_concept.txt
+_plan.txt
+_plan_items.json
+bt-extract.txt
+.idea/
+.vscode/
+_bt_new.txt
