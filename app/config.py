@@ -44,7 +44,27 @@ class Settings(BaseSettings):
     vk_access_token: str = ""
     vk_group_id: str = ""
     vk_api_version: str = "5.199"
-    youtube_client_secrets: str = ""
+    youtube_client_id: str = ""
+    youtube_client_secret: str = ""
+    youtube_refresh_token: str = ""
+    youtube_privacy: str = "public"  # public | unlisted | private
+
+    ok_app_key: str = ""
+    ok_app_secret: str = ""
+    ok_access_token: str = ""
+    ok_group_id: str = ""
+
+    instagram_user_id: str = ""
+    instagram_access_token: str = ""
+    instagram_manual: bool = False  # true и нет токена — присылать файл и текст для ручной загрузки
+
+    dzen_manual: bool = False  # true — присылать файл и текст для ручной загрузки в Дзен
+
+    # Ссылка на сайт: финальная карточка в конце ролика и строка в описании. Пусто — не добавляется.
+    site_url: str = ""
+    site_card_text: str = "Подробнее — на сайте"
+    site_card_seconds: float = 2.5
+    hashtags: str = "#пополочкам"
 
     daily_cost_limit: float = 500
     monthly_cost_limit: float = 6000

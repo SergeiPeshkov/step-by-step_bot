@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import textwrap
 from pathlib import Path
 
 from app.assembler.ffmpeg import ffmpeg_bin, ffprobe_bin
@@ -32,6 +33,19 @@ def _duration(path: Path) -> float:
         return float(proc.stdout.strip())
     except ValueError:
         return 0.0
+
+
+def _font_option() -> str:
+    """Шрифт с кириллицей для текстовых кадров. Без него FFmpeg на Windows не может нарисовать текст."""
+    candidates = [
+        Path(__file__).resolve().parents[2] / "data" / "fonts" / "DejaVuSans.ttf",
+        Path(r"C:\Windows\Fonts\arial.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+    ]
+    for path in candidates:
+        if path.exists():
+            return "fontfile='" + path.as_posix().replace(":", r"\:") + "':"
+    return ""
 
 
 def assemble_from_sheet(sheet_path: Path, work_dir: Path, out_path: Path) -> Path:
@@ -131,7 +145,13 @@ def _prepare_shot(shot: dict, index: int, dest: Path, w: int, h: int, fps: int) 
         )
         return dest
     if stype == "text":
-        text = (shot.get("text") or "").replace(":", r"\:").replace("'", "")
+        raw = " ".join((shot.get("text") or "").split())
+        wrapped = "\n".join(textwrap.wrap(raw, width=26)) or " "
+        # Текст через файл: так не нужно экранировать двоеточия, проценты и кавычки.
+        text_file = dest.with_suffix(".txt")
+        text_file.write_text(wrapped, encoding="utf-8")
+        text_arg = text_file.resolve().as_posix().replace(":", r"\:")
+        font = _font_option()
         _run(
             [
                 ffmpeg_bin(),
@@ -141,7 +161,7 @@ def _prepare_shot(shot: dict, index: int, dest: Path, w: int, h: int, fps: int) 
                 "-i",
                 f"color=c=0x0b0f14:s={w}x{h}:d={duration}:r={fps}",
                 "-vf",
-                f"drawtext=text='{text}':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=(h-text_h)/2",
+                f"drawtext={font}textfile='{text_arg}':expansion=none:fontcolor=white:fontsize=56:line_spacing=18:x=(w-text_w)/2:y=(h-text_h)/2",
                 "-c:v",
                 "libx264",
                 "-pix_fmt",
