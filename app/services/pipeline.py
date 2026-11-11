@@ -243,6 +243,21 @@ def build_sheet(video: Video) -> dict:
                 "dirty": s.stale,
             }
         )
+    if settings.site_url and shots:
+        # Финальная карточка со ссылкой на сайт: добавляется автоматически, в сценарии её писать не нужно.
+        end = max(float(s["end"]) for s in shots)
+        domain = re.sub(r"^https?://", "", settings.site_url).rstrip("/")
+        shots.append(
+            {
+                "start": end,
+                "end": round(end + settings.site_card_seconds, 2),
+                "type": "text",
+                "file": "",
+                "effect": "none",
+                "text": f"{settings.site_card_text} {domain}".strip(),
+                "dirty": True,
+            }
+        )
     voice = [{"start": p.start, "file": p.path} for p in video.phrases if p.path]
     subs = []
     for p in video.phrases:

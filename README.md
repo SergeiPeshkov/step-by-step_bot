@@ -31,6 +31,21 @@ python run.py
 
 Музыку с правом использования положите в `data/music/`. Шрифт кириллицы — `data/fonts/DejaVuSans.ttf`.
 
+## Площадки
+
+Каждая площадка включается, когда в `.env` заполнены её строки. Список включённых — в `/settings`.
+
+| Площадка | Как публикуется | Что нужно в `.env` |
+|---|---|---|
+| Telegram | автоматически | `TELEGRAM_CHANNEL_ID` |
+| VK | автоматически | `VK_ACCESS_TOKEN`, `VK_GROUP_ID` |
+| YouTube Shorts | автоматически | `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` (выдаёт `python scripts/youtube_auth.py`) |
+| Одноклассники | автоматически | `OK_APP_KEY`, `OK_APP_SECRET`, `OK_ACCESS_TOKEN`, `OK_GROUP_ID` |
+| Instagram Reels | автоматически или вручную | `INSTAGRAM_USER_ID`, `INSTAGRAM_ACCESS_TOKEN`; без них `INSTAGRAM_MANUAL=true` |
+| Дзен | вручную (открытого API нет) | `DZEN_MANUAL=true` — бот пришлёт файл и текст |
+
+Ссылка на сайт: `SITE_URL`. Если задана, бот сам добавляет в конец ролика карточку «Подробнее — на сайте …» и строку со ссылкой в описание. Пока сайта нет, оставьте пустым.
+
 ## Команды
 
 | Команда | Назначение |
@@ -41,6 +56,7 @@ python run.py
 | `/queue` | Очередь публикаций |
 | `/stats` | Статистика |
 | `/costs` | Расходы и лимиты |
+| `/facts` | База проверенных фактов |
 | `/brain` | Правка «мозга» без кода |
 | `/settings` | Провайдеры и лимиты |
 

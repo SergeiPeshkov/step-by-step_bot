@@ -5,6 +5,7 @@ from telegram import InputFile, Update
 from telegram.ext import ContextTypes
 
 from app.access import guard
+from app.adapters.publishers import get_publishers
 from app.config import settings
 from app.enums import STATUS_LABEL, SceneUse, VideoStatus
 from app.handlers.common import send_card, session, set_await
@@ -162,6 +163,8 @@ async def cmd_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         f"Картинки: {settings.image_provider} / {settings.image_model}\n"
         f"Видео: {settings.video_provider}\n"
         f"Голос: {settings.tts_provider} / {settings.tts_voice}\n"
+        f"Площадки: {', '.join(p.name for p in get_publishers(context.bot)) or 'не настроены'}\n"
+        f"Ссылка на сайт: {settings.site_url or 'нет'}\n"
         f"Публикация по умолчанию: {settings.default_publish_hour:02d}:{settings.default_publish_minute:02d}\n"
         f"Лимит видеокадров: {settings.max_video_shots}\n"
         f"Лимиты: {settings.daily_cost_limit:.0f} ₽/день, {settings.monthly_cost_limit:.0f} ₽/мес"
