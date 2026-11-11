@@ -29,6 +29,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/stats — статистика\n"
         "/costs — расходы\n"
         "/facts — база фактов\n"
+        "/articles — выгрузка статей для сайта\n"
         "/brain — мозг системы\n"
         "/settings — настройки",
         reply_markup=MAIN_KB,
@@ -188,3 +189,21 @@ async def cmd_facts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
     finally:
         db.close()
+
+
+async def cmd_articles(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Все статьи одним JSON-файлом — его забирает сайт."""
+    if not await guard(update, context):
+        return
+    from io import BytesIO
+
+    from app.services.articles import export_all
+
+    db = session()
+    try:
+        data = export_all(db)
+    finally:
+        db.close()
+    buf = BytesIO(data.encode("utf-8"))
+    buf.name = "articles.json"
+    await update.message.reply_document(document=buf, filename="articles.json", caption="Все статьи для сайта (JSON).")
