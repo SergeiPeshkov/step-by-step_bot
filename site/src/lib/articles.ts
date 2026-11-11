@@ -7,7 +7,9 @@
 //   replaced_by  — slug новой версии, если правило изменилось
 //   rule_changed — true, если правило изменилось, а новой версии ещё нет
 //   published_at — дата первой публикации
-import raw from "../data/articles.json";
+// Бот пишет статьи в src/data/articles.bot.json (файла нет в git). Если его нет — берём примеры из articles.json.
+const files = import.meta.glob("../data/articles*.json", { eager: true, import: "default" }) as Record<string, unknown>;
+const raw = files["../data/articles.bot.json"] ?? files["../data/articles.json"];
 import { AUDIENCES, OTHER_SHELF, SHELVES } from "../config";
 
 export type Source = { fact: string; source?: string | null };

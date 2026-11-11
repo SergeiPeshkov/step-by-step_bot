@@ -54,6 +54,8 @@ python run.py
 
 `/articles` — все статьи одним `articles.json` (title, slug, body, videos, sources, actual_date) для загрузки на сайт.
 
+`/site` — бот сам кладёт статьи в `site/src/data/articles.bot.json`, собирает сайт (`npm run build`, нужен Node.js 22) и выполняет `SITE_DEPLOY_CMD` из `.env`, если она задана (rsync/scp на хостинг). С `SITE_AUTO_BUILD=true` это происходит после каждой новой статьи. Подробнее о сайте — `site/README.md`.
+
 ## Команды
 
 | Команда | Назначение |
@@ -66,6 +68,7 @@ python run.py
 | `/costs` | Расходы и лимиты |
 | `/facts` | База проверенных фактов |
 | `/articles` | Все статьи для сайта (JSON) |
+| `/site` | Собрать сайт из статей и выложить на хостинг |
 | `/brain` | Правка «мозга» без кода |
 | `/settings` | Провайдеры и лимиты |
 

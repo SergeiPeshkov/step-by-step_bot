@@ -14,6 +14,7 @@ BOT_COMMANDS = [
     BotCommand("costs", "Расходы и лимиты"),
     BotCommand("facts", "База фактов"),
     BotCommand("articles", "Выгрузка статей для сайта"),
+    BotCommand("site", "Собрать и выложить сайт"),
     BotCommand("brain", "Мозг системы"),
     BotCommand("settings", "Настройки"),
 ]

@@ -70,6 +70,15 @@ class Settings(BaseSettings):
     outro_max_seconds: float = 4.0
     hashtags: str = "#пополочкам"
 
+    # Сайт (папка site, Astro). Команда /site пишет статьи в site/src/data/articles.json,
+    # собирает сайт (npm run build) и выполняет SITE_DEPLOY_CMD, если она задана.
+    # В команде доступна переменная SITE_DIST — путь к готовой папке dist.
+    # Пример: rsync -az --delete "$SITE_DIST/" user@host:/var/www/site/
+    site_dir: Path = ROOT / "site"
+    site_deploy_cmd: str = ""
+    # true — пересобирать и выкладывать сайт сам после каждой новой или обновлённой статьи.
+    site_auto_build: bool = False
+
     daily_cost_limit: float = 500
     monthly_cost_limit: float = 6000
     keep_files_days: int = 30
