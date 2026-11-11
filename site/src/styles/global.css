@@ -40,6 +40,27 @@
   --radius: 14px; --shelf-mark: 1;
 }
 
+/* Г — «Тёплый с коричневым» (выбран 11.11.2026): тёплый фон, тёмно-коричневый текст,
+   терракотовые плашки, зелёный второй цвет (рамки с цифрами, «Актуально на»). PT Serif + Golos Text */
+:root[data-theme="g"] {
+  --bg: #FBF3E7; --surface: #FFFAF2; --text: #3A2A1F; --muted: #7A6656; --line: #EAD9C2;
+  --accent: #C2582F; --accent-ink: #ffffff; --warn-bg: #F1DFC8; --warn-line: #C2582F;
+  --second: #1F4D3A; --plate: #F1DFC8;
+  --head-bg: #3A2A1F; --head-ink: #FBF3E7;
+  --font-head: "PT Serif", Georgia, serif;
+  --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --radius: 12px; --shelf-mark: 0;
+}
+:root[data-theme="g"] .site-foot { background: var(--head-bg); color: var(--head-ink); border: 0; }
+:root[data-theme="g"] .site-foot a { color: var(--head-ink); }
+:root[data-theme="g"] .actual { background: transparent; color: var(--second); box-shadow: inset 0 0 0 2px var(--second); }
+:root[data-theme="g"] .short { background: var(--plate); border-color: var(--plate); }
+:root[data-theme="g"] .short dt { color: var(--second); }
+:root[data-theme="g"] .tag { background: var(--plate); }
+:root[data-theme="g"] .chip[aria-pressed="true"] { background: var(--second); border-color: var(--second); color: #fff; }
+:root[data-theme="g"] .logo-mark i { background: var(--head-ink); }
+:root[data-theme="g"] .logo-mark i:nth-child(2) { background: var(--accent); }
+
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
@@ -63,7 +84,7 @@ h2 { font-size: 1.3rem; }
 .logo { font: 700 1.2rem var(--font-head); color: var(--text); text-decoration: none; display: flex; gap: 8px; align-items: center; }
 .logo-mark { width: 26px; height: 26px; display: grid; gap: 3px; grid-template-rows: repeat(3, 1fr); }
 .logo-mark i { background: var(--accent); border-radius: 2px; }
-.logo-mark i:nth-child(2) { width: 70%; } .logo-mark i:nth-child(3) { width: 85%; }
+.logo-mark i:nth-child(2) { width: 65%; }
 .nav { display: flex; gap: 14px; margin-left: auto; flex-wrap: wrap; font-size: .95rem; }
 .nav a { text-decoration: none; white-space: nowrap; }
 @media (max-width: 640px) {

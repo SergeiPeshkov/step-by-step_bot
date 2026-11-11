@@ -30,6 +30,11 @@ const base = import.meta.env.BASE_URL;
     <meta property="og:description" content={description} />
     <meta property="og:url" content={url} />
     <meta property="og:locale" content="ru_RU" />
+    {SITE.theme === "g" && <>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;600;700&family=PT+Serif:wght@700&display=swap" />
+    </>}
     <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
     {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
   </head>
