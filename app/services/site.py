@@ -8,15 +8,20 @@ GitHub для этого не нужен: всё происходит на ма�
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import shutil
 from dataclasses import dataclass
+from pathlib import Path
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.assembler.ffmpeg import ffmpeg_bin
 from app.config import settings
-from app.services.articles import export_all
+from app.models import Article, Video
+from app.services.articles import as_dict
 
 log = logging.getLogger(__name__)
 
@@ -50,15 +55,54 @@ def _tail(text: str, lines: int = 15) -> str:
     return "\n".join(text.strip().splitlines()[-lines:])
 
 
-def write_articles(session: Session) -> int:
-    data = export_all(session)
+async def _media_for(video: Video, slug: str, env: dict[str, str]) -> dict | None:
+    """Ролик для сайта: mp4 720p с быстрым стартом и обложка. Пересобирается, только если исходник новее."""
+    src = Path(video.assembled_path or "")
+    if not video.assembled_path or not src.exists():
+        return None
+    out_dir = settings.site_dir / "public" / "video"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    mp4, jpg = out_dir / f"{slug}.mp4", out_dir / f"{slug}.jpg"
+    if not mp4.exists() or mp4.stat().st_mtime < src.stat().st_mtime:
+        tmp = out_dir / f"{slug}.tmp.mp4"
+        code, out = await _run(
+            [ffmpeg_bin(), "-y", "-i", str(src), "-vf", "scale=-2:1280", "-c:v", "libx264", "-preset", "slow",
+             "-crf", "26", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(tmp)],
+            env,
+        )
+        if code:
+            log.warning("site video %s failed: %s", slug, _tail(out))
+            tmp.unlink(missing_ok=True)
+            return None
+        os.replace(tmp, mp4)
+        jpg.unlink(missing_ok=True)
+    if not jpg.exists():
+        await _run([ffmpeg_bin(), "-y", "-ss", "1", "-i", str(mp4), "-frames:v", "1", "-q:v", "3", str(jpg)], env)
+    base = settings.site_media_url.rstrip("/")
+    prefix = f"{base}/" if base else ""
+    return {
+        "video_file": f"{prefix}video/{mp4.name}",
+        "poster": f"{prefix}video/{jpg.name}" if jpg.exists() else None,
+    }
+
+
+async def write_articles(session: Session, env: dict[str, str]) -> int:
+    items = []
+    for article in session.scalars(select(Article).order_by(Article.id)):
+        item = as_dict(article)
+        video = session.get(Video, article.video_id)
+        media = await _media_for(video, article.slug, env) if video and settings.site_own_video else None
+        if media:
+            item.update(media)
+        items.append(item)
+    data = json.dumps({"articles": items}, ensure_ascii=False, indent=2)
     # Отдельный файл, которого нет в git: примеры в articles.json не трогаем.
     target = settings.site_dir / "src" / "data" / "articles.bot.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(".json.tmp")
     tmp.write_text(data, encoding="utf-8")
     os.replace(tmp, target)
-    return data.count('"slug"')
+    return len(items)
 
 
 async def build_and_deploy(session: Session, deploy: bool = True) -> SiteResult:
@@ -70,10 +114,10 @@ async def build_and_deploy(session: Session, deploy: bool = True) -> SiteResult:
         return SiteResult(False, "Не найден npm. Установите Node.js 22 (nodejs.org) и перезапустите бота.")
 
     async with _lock:
-        count = write_articles(session)
         env = dict(os.environ)
         if settings.site_url:
             env["SITE_URL"] = settings.site_url
+        count = await write_articles(session, env)
 
         if not (settings.site_dir / "node_modules").exists():
             code, out = await _run([npm, "ci"], env)

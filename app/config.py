@@ -78,6 +78,12 @@ class Settings(BaseSettings):
     site_deploy_cmd: str = ""
     # true — пересобирать и выкладывать сайт сам после каждой новой или обновлённой статьи.
     site_auto_build: bool = False
+    # false — на сайте плеер VK Видео (или другой площадки) по ссылке из публикации.
+    # true — бот кладёт на сайт свой файл ролика (mp4 720p) и обложку.
+    site_own_video: bool = False
+    # Откуда сайт берёт файлы роликов. Пусто — с того же сервера (папка video рядом с сайтом).
+    # Если вынести ролики в облако (например, Yandex Object Storage), укажите адрес бакета.
+    site_media_url: str = ""
 
     daily_cost_limit: float = 500
     monthly_cost_limit: float = 6000

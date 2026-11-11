@@ -3,3 +3,4 @@ dist/
 .astro/
 .env
 src/data/articles.bot.json
+public/video/

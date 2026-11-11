@@ -7,6 +7,7 @@
 //   replaced_by  — slug новой версии, если правило изменилось
 //   rule_changed — true, если правило изменилось, а новой версии ещё нет
 //   published_at — дата первой публикации
+//   video_file, poster — свой файл ролика и обложка (бот кладёт их в public/video при /site)
 // Бот пишет статьи в src/data/articles.bot.json (файла нет в git). Если его нет — берём примеры из articles.json.
 const files = import.meta.glob("../data/articles*.json", { eager: true, import: "default" }) as Record<string, unknown>;
 const raw = files["../data/articles.bot.json"] ?? files["../data/articles.json"];
@@ -23,6 +24,8 @@ export type Article = {
   blocks: Block[];
   plain: string;
   videos: VideoLink[];
+  videoFile: string | null;
+  poster: string | null;
   sources: Source[];
   actualDate: Date | null;
   updatedAt: Date | null;
@@ -39,6 +42,12 @@ const toDate = (v: unknown): Date | null => {
   if (!v || typeof v !== "string") return null;
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d;
+};
+
+// Путь к файлу: полный адрес оставляем как есть, относительный — от корня сайта.
+const media = (v: unknown): string | null => {
+  if (!v || typeof v !== "string") return null;
+  return /^https?:\/\//.test(v) ? v : `${import.meta.env.BASE_URL}${v.replace(/^\/+/, "")}`;
 };
 
 const findShelf = (v: unknown) => {
@@ -80,6 +89,8 @@ function normalize(a: any): Article {
     blocks,
     plain: blocks.map((b) => b.text).join(" "),
     videos: Array.isArray(a.videos) ? a.videos.filter((v: any) => v?.url) : [],
+    videoFile: media(a.video_file),
+    poster: media(a.poster),
     sources: Array.isArray(a.sources) ? a.sources : [],
     actualDate: toDate(a.actual_date),
     updatedAt: toDate(a.updated_at),

@@ -6,6 +6,7 @@ interface Props { a: Article; showShelf?: boolean }
 const { a, showShelf = true } = Astro.props;
 ---
 <a class="card" href={`${import.meta.env.BASE_URL}${a.slug}/`} data-audience={a.audience.join(" ")} style={`--shelf-color:${shelfColor(a.shelf.id)}`}>
+  {a.poster && <img class="card-poster" src={a.poster} alt="" loading="lazy" width="124" height="220" />}
   <div class="meta">
     {showShelf && HAS_SHELVES && <span class="tag">{a.shelf.title}</span>}
     {a.audience.map((x) => <span>{audienceTitle(x)}</span>)}

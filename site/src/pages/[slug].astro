@@ -42,13 +42,16 @@ const jsonLd: any[] = [
     ],
   },
 ];
-if (player) {
+if (a.videoFile || player) {
+  const abs = (p: string | null) => (p ? new URL(p, Astro.site).href : undefined);
   jsonLd.push({
     "@context": "https://schema.org",
     "@type": "VideoObject",
     name: a.title,
     description,
-    embedUrl: player,
+    contentUrl: abs(a.videoFile),
+    embedUrl: player ?? undefined,
+    thumbnailUrl: abs(a.poster),
     uploadDate: a.publishedAt?.toISOString(),
     inLanguage: "ru",
   });
@@ -57,71 +60,73 @@ if (player) {
 <Base title={a.title} description={description} jsonLd={jsonLd}>
   <div class="crumbs"><a href={base}>Главная</a>{HAS_SHELVES && <> › <a href={`${base}polka/${a.shelf.id}/`}>{a.shelf.title}</a></>}</div>
 
-  <div class={`layout ${player || a.videos.length ? "with-video" : ""}`}>
-    {(player || a.videos.length > 0) && (
-      <aside class="side">
-        <div class="player">
-          {player && <div class="frame"><iframe src={player} title={`Ролик: ${a.title}`} loading="lazy" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe></div>}
-          {a.videos.length > 0 && (
-            <div class="watch">
-              <span class="note">Смотреть:</span>
-              {a.videos.map((v) => <a href={v.url} rel="noopener" target="_blank">{PLATFORM_LABEL[v.platform] ?? v.platform}</a>)}
-            </div>
-          )}
-        </div>
-      </aside>
+  <article class="narrow">
+    <h1>{a.title}</h1>
+    <div class="meta">
+      {a.audience.map((x) => <span class="tag">{audienceTitle(x)}</span>)}
+      {a.actualDate && <span class="actual">Актуально на {formatDate(a.actualDate)}</span>}
+    </div>
+
+    {a.ruleChanged && (
+      <div class="changed">
+        ⚠ Правило изменилось.{" "}
+        {newer ? <>Смотрите новую версию: <a href={`${base}${newer.slug}/`}>{newer.title}</a></> : "Новая версия ролика готовится — проверяйте цифры по источникам ниже."}
+      </div>
     )}
 
-    <article class="narrow">
-      <h1>{a.title}</h1>
-      <div class="meta">
-        {a.audience.map((x) => <span class="tag">{audienceTitle(x)}</span>)}
-        {a.actualDate && <span class="actual">Актуально на {formatDate(a.actualDate)}</span>}
-      </div>
-
-      {a.ruleChanged && (
-        <div class="changed">
-          ⚠ Правило изменилось.{" "}
-          {newer ? <>Смотрите новую версию: <a href={`${base}${newer.slug}/`}>{newer.title}</a></> : "Новая версия ролика готовится — проверяйте цифры по источникам ниже."}
+    {(a.videoFile || player) && (
+      <figure class="player">
+        <div class="frame">
+          {a.videoFile ? (
+            <video src={a.videoFile} poster={a.poster ?? undefined} controls playsinline preload="metadata" title={`Ролик: ${a.title}`}></video>
+          ) : (
+            <iframe src={player!} title={`Ролик: ${a.title}`} loading="lazy" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>
+          )}
         </div>
-      )}
-
-      {a.summary ? (
-        <dl class="short">
-          {a.summary.essence && <><dt>Суть</dt><dd>{a.summary.essence}</dd></>}
-          {a.summary.todo && <><dt>Что сделать</dt><dd>{a.summary.todo}</dd></>}
-          {a.summary.deadline && <><dt>Срок</dt><dd>{a.summary.deadline}</dd></>}
-        </dl>
-      ) : null}
-
-      {a.blocks.map((b) => (b.kind === "h" ? <h2>{b.text}</h2> : <p>{b.text}</p>))}
-
-      {a.sources.length > 0 && (
-        <>
-          <h2>Ключевые факты и источники</h2>
-          <ul class="facts">
-            {a.sources.map((s) => (
-              <li>
-                {s.fact}
-                <span class="src">
-                  {s.source ? (/^https?:\/\//.test(s.source) ? <a href={s.source} rel="noopener nofollow" target="_blank">{s.source}</a> : s.source) : "источник уточняется"}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {a.actualDate && <p><span class="actual">Актуально на {formatDate(a.actualDate)}</span></p>}
-        </>
-      )}
-
-      <div class="share" data-share data-url={pageUrl} data-title={a.title}>
-        <button class="btn" type="button" data-share-btn>Поделиться</button>
-        <input type="text" readonly value={shortUrl} aria-label="Короткая ссылка" />
-        <button class="btn ghost" type="button" data-copy={shortUrl}>Скопировать</button>
+      </figure>
+    )}
+    {a.videos.length > 0 && (
+      <div class="watch">
+        <span class="note">Этот ролик на площадках:</span>
+        {a.videos.map((v) => <a href={v.url} rel="noopener" target="_blank">{PLATFORM_LABEL[v.platform] ?? v.platform}</a>)}
       </div>
+    )}
 
-      <p class="note">{SITE.disclaimer}</p>
-    </article>
-  </div>
+    {a.summary ? (
+      <dl class="short">
+        {a.summary.essence && <><dt>Суть</dt><dd>{a.summary.essence}</dd></>}
+        {a.summary.todo && <><dt>Что сделать</dt><dd>{a.summary.todo}</dd></>}
+        {a.summary.deadline && <><dt>Срок</dt><dd>{a.summary.deadline}</dd></>}
+      </dl>
+    ) : null}
+
+    {a.blocks.map((b) => (b.kind === "h" ? <h2>{b.text}</h2> : <p>{b.text}</p>))}
+
+    {a.sources.length > 0 && (
+      <>
+        <h2>Ключевые факты и источники</h2>
+        <ul class="facts">
+          {a.sources.map((s) => (
+            <li>
+              {s.fact}
+              <span class="src">
+                {s.source ? (/^https?:\/\//.test(s.source) ? <a href={s.source} rel="noopener nofollow" target="_blank">{s.source}</a> : s.source) : "источник уточняется"}
+              </span>
+            </li>
+          ))}
+        </ul>
+        {a.actualDate && <p><span class="actual">Актуально на {formatDate(a.actualDate)}</span></p>}
+      </>
+    )}
+
+    <div class="share" data-share data-url={pageUrl} data-title={a.title}>
+      <button class="btn" type="button" data-share-btn>Поделиться</button>
+      <input type="text" readonly value={shortUrl} aria-label="Короткая ссылка" />
+      <button class="btn ghost" type="button" data-copy={shortUrl}>Скопировать</button>
+    </div>
+
+    <p class="note">{SITE.disclaimer}</p>
+  </article>
 
   {more.length > 0 && (
     <section>
