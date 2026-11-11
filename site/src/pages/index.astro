@@ -7,18 +7,29 @@ import { shelfColor } from "../lib/shelfColor";
 import { SITE } from "../config";
 const base = import.meta.env.BASE_URL;
 const latest = ARTICLES.filter((a) => !a.replacedBy).slice(0, HAS_SHELVES ? 12 : 60);
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  name: SITE.name,
-  url: Astro.site?.href,
-  potentialAction: { "@type": "SearchAction", target: `${new URL("poisk/", Astro.site)}?q={q}`, "query-input": "required name=q" },
-};
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: SITE.name,
+    url: Astro.site?.href,
+    inLanguage: "ru",
+    potentialAction: { "@type": "SearchAction", target: `${new URL("poisk/", Astro.site)}?q={q}`, "query-input": "required name=q" },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: SITE.name,
+    url: Astro.site?.href,
+    logo: new URL("apple-touch-icon.png", Astro.site).href,
+    sameAs: Object.values(SITE.channels).filter(Boolean),
+  },
+];
 ---
-<Base title={SITE.name} jsonLd={jsonLd}>
+<Base title={`${SITE.name} — законы и правила простыми словами`} description="Короткие ролики и понятные статьи о налогах, вычетах, пособиях, ЖКХ, ИП и самозанятости: что положено, что сделать и в какой срок. Все цифры со ссылками на источники." jsonLd={jsonLd}>
   <section class="hero">
-    <h1>{SITE.name}</h1>
-    <p>{SITE.tagline}</p>
+    <h1>Законы и правила простыми словами</h1>
+    <p>{SITE.name}: один вопрос — один короткий ролик и понятная статья. Цифры и сроки — со ссылками на источники.</p>
     <form class="search" action={`${base}poisk/`} method="get" role="search">
       <input name="q" type="search" placeholder="Опишите свой вопрос: например, «вычет за лечение»" aria-label="Опишите свой вопрос" />
       <button class="btn" type="submit">Найти</button>

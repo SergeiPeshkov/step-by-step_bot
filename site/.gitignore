@@ -4,3 +4,4 @@ dist/
 .env
 src/data/articles.bot.json
 public/video/
+.indexnow-state

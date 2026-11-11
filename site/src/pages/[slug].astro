@@ -2,7 +2,7 @@
 // Страница вопроса (FR-L01–L08). Адрес и заголовок — сам вопрос.
 import Base from "../layouts/Base.astro";
 import Card from "../components/Card.astro";
-import { ARTICLES, HAS_SHELVES, audienceTitle, bySlug, formatDate, related, type Article } from "../lib/articles";
+import { ARTICLES, HAS_SHELVES, audienceTitle, bySlug, formatDate, metaDescription, related, shortAnswer, type Article } from "../lib/articles";
 import { PLATFORM_LABEL, pickPlayer } from "../lib/video";
 import { RESERVED } from "../lib/reserved";
 import { SITE } from "../config";
@@ -18,19 +18,40 @@ const newer = a.replacedBy ? bySlug(a.replacedBy) : null;
 const more = related(a);
 const pageUrl = new URL(`${a.slug}/`, Astro.site).href;
 const shortUrl = new URL(`s/${a.id}/`, Astro.site).href;
-const description = (a.summary?.essence || a.lead || a.title).slice(0, 200);
+const description = metaDescription(a);
+const ogImage = `og/${a.slug}.png`;
+const ogAbs = new URL(ogImage, Astro.site).href;
+// Если вышла новая версия, поисковик склеивает старую страницу с новой.
+const canonical = newer ? new URL(`${newer.slug}/`, Astro.site).href : pageUrl;
+const org = {
+  "@type": "Organization",
+  name: SITE.name,
+  url: Astro.site?.href,
+  logo: { "@type": "ImageObject", url: new URL("apple-touch-icon.png", Astro.site).href, width: 180, height: 180 },
+};
 
 const jsonLd: any[] = [
   {
     "@context": "https://schema.org",
     "@type": "Article",
-    headline: a.title,
+    headline: a.title.slice(0, 110),
     description,
+    image: [ogAbs],
     inLanguage: "ru",
     datePublished: a.publishedAt?.toISOString(),
-    dateModified: a.updatedAt?.toISOString(),
-    mainEntityOfPage: pageUrl,
-    publisher: { "@type": "Organization", name: SITE.name },
+    dateModified: (a.updatedAt ?? a.publishedAt)?.toISOString(),
+    mainEntityOfPage: { "@type": "WebPage", "@id": pageUrl },
+    author: SITE.author ? { "@type": "Person", name: SITE.author } : org,
+    publisher: org,
+    isAccessibleForFree: true,
+    ...(a.sources.some((s) => s.source && /^https?:/.test(s.source))
+      ? { citation: a.sources.filter((s) => s.source && /^https?:/.test(s.source)).map((s) => s.source) }
+      : {}),
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [{ "@type": "Question", name: a.title, acceptedAnswer: { "@type": "Answer", text: shortAnswer(a) } }],
   },
   {
     "@context": "https://schema.org",
@@ -51,20 +72,23 @@ if (a.videoFile || player) {
     description,
     contentUrl: abs(a.videoFile),
     embedUrl: player ?? undefined,
-    thumbnailUrl: abs(a.poster),
-    uploadDate: a.publishedAt?.toISOString(),
+    thumbnailUrl: abs(a.poster) ?? ogAbs,
+    uploadDate: (a.publishedAt ?? a.updatedAt)?.toISOString(),
     inLanguage: "ru",
+    isFamilyFriendly: true,
+    publisher: org,
   });
 }
 ---
-<Base title={a.title} description={description} jsonLd={jsonLd}>
-  <div class="crumbs"><a href={base}>Главная</a>{HAS_SHELVES && <> › <a href={`${base}polka/${a.shelf.id}/`}>{a.shelf.title}</a></>}</div>
+<Base title={a.title} description={description} jsonLd={jsonLd} image={ogImage} type="article" canonical={canonical} published={a.publishedAt} modified={a.updatedAt}>
+  <nav class="crumbs" aria-label="Навигационная цепочка"><a href={base}>Главная</a> › {HAS_SHELVES ? <a href={`${base}polka/${a.shelf.id}/`}>{a.shelf.title}</a> : <a href={`${base}voprosy/`}>Все вопросы</a>}</nav>
 
   <article class="narrow">
     <h1>{a.title}</h1>
     <div class="meta">
       {a.audience.map((x) => <span class="tag">{audienceTitle(x)}</span>)}
       {a.actualDate && <span class="actual">Актуально на {formatDate(a.actualDate)}</span>}
+      {a.updatedAt && <span>Обновлено <time datetime={a.updatedAt.toISOString()}>{formatDate(a.updatedAt)}</time></span>}
     </div>
 
     {a.ruleChanged && (
@@ -80,7 +104,11 @@ if (a.videoFile || player) {
           {a.videoFile ? (
             <video src={a.videoFile} poster={a.poster ?? undefined} controls playsinline preload="metadata" title={`Ролик: ${a.title}`}></video>
           ) : (
-            <iframe src={player!} title={`Ролик: ${a.title}`} loading="lazy" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>
+            // Плеер площадки грузится только по нажатию: страница открывается быстрее.
+            <button class="facade" type="button" data-embed={player} aria-label={`Смотреть ролик: ${a.title}`}>
+              <img src={`${base}og/${a.slug}-v.png`} alt="" width="720" height="1280" loading="eager" decoding="async" fetchpriority="high" />
+              <span class="play" aria-hidden="true"></span>
+            </button>
           )}
         </div>
       </figure>
@@ -137,6 +165,19 @@ if (a.videoFile || player) {
 </Base>
 
 <script>
+  document.querySelectorAll<HTMLButtonElement>("button.facade[data-embed]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const url = new URL(btn.dataset.embed!);
+      url.searchParams.set("autoplay", "1");
+      const frame = document.createElement("iframe");
+      frame.src = url.href;
+      frame.title = btn.getAttribute("aria-label") ?? "Ролик";
+      frame.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+      frame.allowFullscreen = true;
+      btn.replaceWith(frame);
+    }),
+  );
+
   // «Поделиться» (FR-L07): на телефоне открывается системное меню, на компьютере — ВКонтакте/Telegram.
   document.querySelectorAll<HTMLElement>("[data-share]").forEach((box) => {
     const url = box.dataset.url!;

@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 import logging
 import os
 import shutil
 from dataclasses import dataclass
+from datetime import timezone
 from pathlib import Path
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -117,6 +120,8 @@ async def build_and_deploy(session: Session, deploy: bool = True) -> SiteResult:
         env = dict(os.environ)
         if settings.site_url:
             env["SITE_URL"] = settings.site_url
+        if settings.indexnow_key:
+            env["INDEXNOW_KEY"] = settings.indexnow_key
         count = await write_articles(session, env)
 
         if not (settings.site_dir / "node_modules").exists():
@@ -136,9 +141,43 @@ async def build_and_deploy(session: Session, deploy: bool = True) -> SiteResult:
             if code:
                 return SiteResult(False, msg + "\nВыкладка не удалась:\n" + _tail(out))
             msg += "\nВыложен на хостинг."
+            pinged = await ping_indexnow(session)
+            if pinged:
+                msg += f"\nЯндекс уведомлён о страницах: {pinged}."
         elif deploy:
             msg += "\nКоманда выкладки (SITE_DEPLOY_CMD) не задана — загрузите папку dist на хостинг сами."
         return SiteResult(True, msg)
+
+
+async def ping_indexnow(session: Session) -> int:
+    """Сообщает Яндексу (IndexNow) о страницах, изменившихся с прошлой выкладки."""
+    if not (settings.indexnow_key and settings.site_url):
+        return 0
+    state = settings.site_dir / ".indexnow-state"
+    last = float(state.read_text()) if state.exists() else 0.0
+    site = settings.site_url.rstrip("/")
+    urls = [
+        f"{site}/{a.slug}/"
+        for a in session.scalars(select(Article))
+        # updated_at хранится в UTC без часового пояса
+        if a.updated_at and a.updated_at.replace(tzinfo=timezone.utc).timestamp() > last
+    ]
+    if not urls:
+        return 0
+    urls += [f"{site}/", f"{site}/voprosy/", f"{site}/izmeneniya/"]
+    host = site.split("://", 1)[-1].split("/", 1)[0]
+    payload = {"host": host, "key": settings.indexnow_key, "keyLocation": f"{site}/indexnow.txt", "urlList": urls[:10000]}
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.post("https://yandex.com/indexnow", json=payload)
+        if r.status_code >= 300:
+            log.warning("IndexNow %s: %s", r.status_code, r.text[:300])
+            return 0
+    except httpx.HTTPError as e:
+        log.warning("IndexNow failed: %s", e)
+        return 0
+    state.write_text(str(time.time()))
+    return len(urls)
 
 
 async def auto_update(session: Session) -> SiteResult | None:

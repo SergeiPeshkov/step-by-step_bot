@@ -134,6 +134,25 @@ export function usedShelves() {
     .filter((s) => s.count > 0 || s.id !== OTHER_SHELF.id);
 }
 
+// Описание для поиска: 120–160 знаков, обрезаем по слову.
+export function metaDescription(a: Article): string {
+  const text = [a.summary?.essence, a.lead, a.plain].find((t) => t && t.trim().length > 0) ?? a.title;
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= 160) return clean;
+  return clean.slice(0, 157).replace(/\s+\S*$/, "").replace(/[,;:—-]$/, "") + "…";
+}
+
+// Короткий ответ для разметки «вопрос — ответ»: суть + первые абзацы, до ~600 знаков.
+export function shortAnswer(a: Article): string {
+  const parts = [a.summary?.essence, a.summary?.todo, a.summary?.deadline].filter(Boolean) as string[];
+  for (const b of a.blocks) {
+    if (parts.join(" ").length > 450) break;
+    if (b.kind === "p") parts.push(b.text);
+  }
+  const text = parts.join(" ");
+  return text.length <= 600 ? text : text.slice(0, 597).replace(/\s+\S*$/, "") + "…";
+}
+
 export const formatDate = (d: Date | null) =>
   d ? d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Moscow" }) : "";
 

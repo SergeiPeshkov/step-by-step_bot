@@ -8,9 +8,10 @@ export function GET({ site }: APIContext) {
   const rows: { loc: string; lastmod?: string }[] = [
     { loc: u("") },
     ...(HAS_SHELVES ? [{ loc: u("polka/") }] : []),
+    { loc: u("voprosy/") },
     { loc: u("izmeneniya/") },
     ...usedShelves().map((s) => ({ loc: u(`polka/${s.id}/`) })),
-    ...ARTICLES.filter((a) => !RESERVED.has(a.slug)).map((a) => ({
+    ...ARTICLES.filter((a) => !RESERVED.has(a.slug) && !a.replacedBy).map((a) => ({
       loc: u(`${a.slug}/`),
       lastmod: (a.updatedAt ?? a.publishedAt)?.toISOString().slice(0, 10),
     })),
