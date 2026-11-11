@@ -84,7 +84,11 @@ async def generate_storyboard(session: Session, video: Video) -> list[Shot]:
     )
     raw = await llm.complete(system, f"Сценарий:\n{script.text}")
     data = _extract_json(raw)
-    shots_data = data.get("shots") or []
+    return save_shots(session, video, data.get("shots") or [])
+
+
+def save_shots(session: Session, video: Video, shots_data: list[dict]) -> list[Shot]:
+    """Заменяет кадры ролика на новые. Поле prompt необязательно: пустые промпты потом соберёт generate_prompts."""
     video.shots.clear()
     session.flush()
     video_count = 0
@@ -104,6 +108,7 @@ async def generate_storyboard(session: Session, video: Video) -> list[Shot]:
             description=item.get("description") or "",
             shot_type=stype,
             effect=item.get("effect") or ("zoom_in" if stype == "image" else "none"),
+            prompt=item.get("prompt") or "",
         )
         session.add(shot)
         created.append(shot)
@@ -120,6 +125,9 @@ async def generate_prompts(session: Session, video: Video) -> None:
     for shot in video.shots:
         if shot.shot_type in (ShotType.BLACK, ShotType.TEXT, ShotType.RITUAL):
             shot.prompt = ""
+            continue
+        if shot.prompt.strip():
+            # Промпт уже написал ИИ-сценарист вместе с автором — не трогаем.
             continue
         shot.prompt = (
             f"{shot.description}. {bible} {bans}. "

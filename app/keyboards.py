@@ -69,12 +69,15 @@ def card_kb(video: Video) -> InlineKeyboardMarkup:
     status = video.status
     rows: list[list[InlineKeyboardButton]] = []
     if status == VideoStatus.DRAFT:
-        rows = [[InlineKeyboardButton("Запустить сценарий", callback_data=f"v:{vid}:gs")]]
+        rows = [
+            [InlineKeyboardButton("Обсудить ролик", callback_data=f"v:{vid}:ds")],
+            [InlineKeyboardButton("Написать сценарий", callback_data=f"v:{vid}:ws")],
+        ]
     elif status == VideoStatus.SCRIPT:
         rows = [
             [
                 InlineKeyboardButton("Утвердить", callback_data=f"v:{vid}:ok"),
-                InlineKeyboardButton("Новая версия", callback_data=f"v:{vid}:nv"),
+                InlineKeyboardButton("Обсудить ещё", callback_data=f"v:{vid}:ds"),
             ],
             [
                 InlineKeyboardButton("Версии", callback_data=f"v:{vid}:vs"),
@@ -82,13 +85,21 @@ def card_kb(video: Video) -> InlineKeyboardMarkup:
             ],
             [InlineKeyboardButton("В эталоны", callback_data=f"v:{vid}:ex")],
         ]
+    elif status == VideoStatus.VISUAL:
+        rows = [
+            [InlineKeyboardButton("Обсудить раскадровку", callback_data=f"v:{vid}:dv")],
+            [InlineKeyboardButton("Сделать раскадровку и промпты", callback_data=f"v:{vid}:wv")],
+        ]
     elif status == VideoStatus.STORYBOARD:
         rows = [
             [
                 InlineKeyboardButton("Утвердить", callback_data=f"v:{vid}:ok"),
-                InlineKeyboardButton("Пересобрать", callback_data=f"v:{vid}:redo"),
+                InlineKeyboardButton("Обсудить ещё", callback_data=f"v:{vid}:dv"),
             ],
-            [InlineKeyboardButton("Изменить кадр", callback_data=f"v:{vid}:edshot")],
+            [
+                InlineKeyboardButton("Изменить кадр", callback_data=f"v:{vid}:edshot"),
+                InlineKeyboardButton("Промпты", callback_data=f"v:{vid}:pr"),
+            ],
         ]
     elif status == VideoStatus.PROMPTS:
         rows = [
@@ -137,6 +148,7 @@ def card_kb(video: Video) -> InlineKeyboardMarkup:
 def back_stages(vid: int) -> InlineKeyboardMarkup:
     labels = [
         ("Сценарий", "script"),
+        ("Обсуждение раскадровки", "visual"),
         ("Раскадровка", "storyboard"),
         ("Промпты", "prompts"),
         ("Медиа", "media"),
@@ -144,6 +156,17 @@ def back_stages(vid: int) -> InlineKeyboardMarkup:
     ]
     rows = [[InlineKeyboardButton(t, callback_data=f"bk:{vid}:{st}")] for t, st in labels]
     return InlineKeyboardMarkup(rows)
+
+
+def discussion_kb(video_id: int, stage: str) -> InlineKeyboardMarkup:
+    """Кнопки под каждым ответом ИИ-сценариста."""
+    if stage == "script":
+        finish = InlineKeyboardButton("Написать сценарий", callback_data=f"v:{video_id}:ws")
+    else:
+        finish = InlineKeyboardButton("Сделать раскадровку и промпты", callback_data=f"v:{video_id}:wv")
+    return InlineKeyboardMarkup(
+        [[finish], [InlineKeyboardButton("Карточка ролика", callback_data=f"v:{video_id}:card")]]
+    )
 
 
 def brain_kb() -> InlineKeyboardMarkup:

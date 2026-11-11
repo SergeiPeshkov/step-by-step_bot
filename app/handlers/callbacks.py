@@ -10,7 +10,8 @@ from telegram.ext import ContextTypes
 from app.access import guard
 from app.config import settings
 from app.enums import AwaitKind, SceneUse, VideoStatus
-from app.handlers.common import refresh_card, send_card, session, set_await
+from app.handlers.common import refresh_card, send_card, send_discussion, session, set_await
+from app.services import discussion
 from app.keyboards import back_stages, brain_kb, card_kb, scene_list, shot_pick
 from app.models import Scene, ScriptVersion, Shot, Video, VoicePhrase
 from app.services.brain import BLOCKS, dump_all, load_block, version_stamp
@@ -96,10 +97,13 @@ async def _pick_scene(q, context, scene_id: int) -> None:
         db.add(video)
         db.commit()
         db.refresh(video)
-        await q.message.reply_text(f"Черновик по сцене {scene.code}. Пишу сценарий…")
-        await generate_script(db, video)
-        db.refresh(video)
-        await send_card(q.message, video, context)
+        set_await(q.from_user.id, AwaitKind.DISCUSS_SCRIPT, video.id)
+        await q.message.reply_text(
+            f"Ролик по сцене {scene.code}. Обсуждаем с ИИ-сценаристом: пишите сообщения прямо в чат, "
+            "когда договоритесь — нажмите «Написать сценарий»."
+        )
+        answer = await discussion.start(db, video, discussion.SCRIPT)
+        await send_discussion(q.message, video.id, discussion.SCRIPT, answer)
     finally:
         db.close()
 
@@ -159,6 +163,28 @@ async def _video_action(q, context, vid: int, action: str) -> None:
             await q.message.reply_text("Ролик не найден")
             return
         if action == "card":
+            await send_card(q.message, video, context)
+            return
+        if action == "ds":
+            set_await(q.from_user.id, AwaitKind.DISCUSS_SCRIPT, vid)
+            answer = await discussion.start(db, video, discussion.SCRIPT)
+            await send_discussion(q.message, vid, discussion.SCRIPT, answer)
+            return
+        if action == "ws":
+            await q.message.reply_text("ИИ-сценарист пишет сценарий по итогам обсуждения…")
+            await discussion.write_script(db, video)
+            set_await(q.from_user.id, AwaitKind.NONE, vid)
+            await send_card(q.message, video, context)
+            return
+        if action == "dv":
+            set_await(q.from_user.id, AwaitKind.DISCUSS_VISUAL, vid)
+            answer = await discussion.start(db, video, discussion.VISUAL)
+            await send_discussion(q.message, vid, discussion.VISUAL, answer)
+            return
+        if action == "wv":
+            await q.message.reply_text("ИИ-сценарист собирает раскадровку и промпты…")
+            await discussion.write_storyboard(db, video)
+            set_await(q.from_user.id, AwaitKind.NONE, vid)
             await send_card(q.message, video, context)
             return
         if action == "gs":
@@ -254,8 +280,13 @@ async def _approve(q, context, db, video: Video) -> None:
         script = latest_script(video)
         if script:
             script.approved = True
-        await q.message.reply_text("Сценарий утверждён. Раскадровка…")
-        await generate_storyboard(db, video)
+        set_await(q.from_user.id, AwaitKind.DISCUSS_VISUAL, video.id)
+        await q.message.reply_text(
+            "Сценарий утверждён. Этап 2: обсуждаем с ИИ-сценаристом раскадровку и промпты. "
+            "Пишите прямо в чат, когда договоритесь — нажмите «Сделать раскадровку и промпты»."
+        )
+        answer = await discussion.start(db, video, discussion.VISUAL)
+        await send_discussion(q.message, video.id, discussion.VISUAL, answer)
     elif st == VideoStatus.STORYBOARD:
         await generate_prompts(db, video)
         await q.message.reply_text("Промпты готовы. Можно сразу генерировать или посмотреть.")

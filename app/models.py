@@ -76,6 +76,24 @@ class Video(Base):
     publications: Mapped[list["Publication"]] = relationship(back_populates="video", cascade="all, delete-orphan")
     costs: Mapped[list["CostEntry"]] = relationship(back_populates="video", cascade="all, delete-orphan")
     events: Mapped[list["AuditEvent"]] = relationship(back_populates="video", cascade="all, delete-orphan")
+    discussion: Mapped[list["DiscussionMessage"]] = relationship(
+        back_populates="video", cascade="all, delete-orphan", order_by="DiscussionMessage.id"
+    )
+
+
+class DiscussionMessage(Base):
+    """Переписка автора с ИИ-сценаристом. stage: script — сценарий, visual — раскадровка и промпты."""
+
+    __tablename__ = "discussion_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id"), index=True)
+    stage: Mapped[str] = mapped_column(String(16), default="script")
+    role: Mapped[str] = mapped_column(String(16))  # user | assistant
+    text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    video: Mapped["Video"] = relationship(back_populates="discussion")
 
 
 class ScriptVersion(Base):

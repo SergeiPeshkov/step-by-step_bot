@@ -16,6 +16,11 @@ def card_text(video: Video) -> str:
         preview = f"\n\n{body}"
         if warn_txt:
             preview += f"\n\nПредупреждения (решение за вами):\n{warn_txt}"
+    talk = ""
+    if video.status in (VideoStatus.DRAFT, VideoStatus.VISUAL):
+        stage = "script" if video.status == VideoStatus.DRAFT else "visual"
+        n = sum(1 for m in video.discussion if m.stage == stage and m.role == "user")
+        talk = f"\n\nОбсуждение с ИИ-сценаристом: реплик автора — {n}. Пишите сообщения прямо в чат."
     shots = ""
     if video.shots and video.status in {
         VideoStatus.STORYBOARD,
@@ -33,5 +38,5 @@ def card_text(video: Video) -> str:
         f"Ролик #{video.id}\n{title}\n"
         f"Статус: {STATUS_LABEL.get(video.status, video.status)}\n"
         f"Мозг: v{video.brain_version} · расход: {video.cost:.1f} ₽"
-        f"{stale}{preview}{shots}"
+        f"{stale}{talk}{preview}{shots}"
     )
