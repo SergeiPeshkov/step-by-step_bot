@@ -28,6 +28,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/queue — очередь публикаций\n"
         "/stats — статистика\n"
         "/costs — расходы\n"
+        "/facts — база фактов\n"
         "/brain — мозг системы\n"
         "/settings — настройки",
         reply_markup=MAIN_KB,
@@ -165,3 +166,25 @@ async def cmd_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         f"Лимит видеокадров: {settings.max_video_shots}\n"
         f"Лимиты: {settings.daily_cost_limit:.0f} ₽/день, {settings.monthly_cost_limit:.0f} ₽/мес"
     )
+
+
+async def cmd_facts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await guard(update, context):
+        return
+    from app.models import Fact
+
+    db = session()
+    try:
+        confirmed = db.scalar(select(func.count(Fact.id)).where(Fact.status == "confirmed")) or 0
+        outdated = db.scalar(select(func.count(Fact.id)).where(Fact.status == "outdated")) or 0
+        last = list(
+            db.scalars(select(Fact).where(Fact.status == "confirmed").order_by(Fact.checked_at.desc(), Fact.id.desc()).limit(20))
+        )
+        lines = [f"• {f.text} — {f.checked_at:%d.%m.%Y}" + (f"\n  {f.source}" if f.source else "") for f in last if f.checked_at]
+        await update.message.reply_text(
+            (f"База фактов: проверено {confirmed}, устарело {outdated}.\n\nПоследние проверенные:\n" + "\n".join(lines))[:3900]
+            if lines
+            else "База фактов пока пуста. Факты появляются после утверждения сценария."
+        )
+    finally:
+        db.close()

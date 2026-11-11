@@ -4,6 +4,7 @@ from enum import StrEnum
 class VideoStatus(StrEnum):
     DRAFT = "draft"
     SCRIPT = "script"
+    FACTS = "facts"  # проверка фактов: без неё дальше нельзя
     VISUAL = "visual"  # обсуждение раскадровки и промптов с ИИ-сценаристом
     STORYBOARD = "storyboard"
     PROMPTS = "prompts"
@@ -42,11 +43,15 @@ class AwaitKind(StrEnum):
     REGEN_NOTE = "regen_note"
     DISCUSS_SCRIPT = "discuss_script"
     DISCUSS_VISUAL = "discuss_visual"
+    FACT_EDIT = "fact_edit"
+    FACT_SOURCE = "fact_source"
+    FACT_ADD = "fact_add"
 
 
 STATUS_LABEL = {
     VideoStatus.DRAFT: "Обсуждение ролика",
     VideoStatus.SCRIPT: "Сценарий",
+    VideoStatus.FACTS: "Проверка фактов",
     VideoStatus.VISUAL: "Обсуждение раскадровки",
     VideoStatus.STORYBOARD: "Раскадровка",
     VideoStatus.PROMPTS: "Промпты",
@@ -61,6 +66,7 @@ STATUS_LABEL = {
 STAGE_ORDER = [
     VideoStatus.DRAFT,
     VideoStatus.SCRIPT,
+    VideoStatus.FACTS,
     VideoStatus.VISUAL,
     VideoStatus.STORYBOARD,
     VideoStatus.PROMPTS,

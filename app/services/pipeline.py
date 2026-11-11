@@ -248,6 +248,9 @@ def build_sheet(video: Video) -> dict:
     for p in video.phrases:
         end = p.start + max(1.2, len(p.text.split()) / 2.3)
         subs.append({"start": p.start, "end": end, "text": p.text})
+    from app.services.facts import actual_date
+
+    checked = actual_date(video)
     music_files = list(settings.music_dir.glob("*"))
     music = {}
     if music_files:
@@ -258,6 +261,7 @@ def build_sheet(video: Video) -> dict:
         "voice": voice,
         "music": music,
         "subtitles": subs,
+        "badge": f"Актуально на {checked:%d.%m.%Y}" if checked else "",
     }
 
 

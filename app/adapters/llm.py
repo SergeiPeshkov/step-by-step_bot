@@ -17,6 +17,16 @@ class LLMAdapter(Protocol):
 
 class StubLLM:
     async def complete(self, system: str, user: str) -> str:
+        if system.startswith("ФАКТЫ"):
+            return json.dumps(
+                {
+                    "facts": [
+                        {"text": "Ставка по программе — 6% годовых (заглушка)", "source": "Постановление Правительства РФ № 1711"},
+                        {"text": "Программа действует с 2018 года (заглушка)", "source": ""},
+                    ]
+                },
+                ensure_ascii=False,
+            )
         if "РАСКАДРОВКА" in system or "storyboard" in user.lower() or "раскадровку" in user.lower():
             return self._storyboard(user)
         if "ПРОМПТ" in system:
@@ -33,7 +43,8 @@ class StubLLM:
     async def chat(self, system: str, messages: list[dict]) -> str:
         last = messages[-1]["content"] if messages else ""
         if "JSON" in last:
-            return self._storyboard(last)
+            script = system.split("## Утверждённый сценарий", 1)[-1].split("##", 1)[0]
+            return self._storyboard(script)
         if "итоговый сценарий" in last.lower():
             return await self.complete(system, last)
         if "Начни обсуждение раскадровки" in last:
