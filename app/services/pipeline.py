@@ -13,6 +13,7 @@ from app.adapters.llm import get_llm_adapter
 from app.adapters.tts import get_tts_adapter
 from app.adapters.video_gen import get_video_adapter
 from app.assembler.assemble import assemble_from_sheet
+from app import brand
 from app.config import settings
 from app.enums import ShotType, VideoStatus
 from app.models import AuditEvent, MediaFile, ScriptVersion, Shot, Video, VoicePhrase
@@ -120,7 +121,6 @@ def save_shots(session: Session, video: Video, shots_data: list[dict]) -> list[S
 
 
 async def generate_prompts(session: Session, video: Video) -> None:
-    bible = load_block("style_bible")
     bans = "без текста в кадре, без логотипов банков и брендов, без госсимволики, без узнаваемых реальных людей, 9:16"
     for shot in video.shots:
         if shot.shot_type in (ShotType.BLACK, ShotType.TEXT, ShotType.RITUAL):
@@ -129,10 +129,7 @@ async def generate_prompts(session: Session, video: Video) -> None:
         if shot.prompt.strip():
             # Промпт уже написал ИИ-сценарист вместе с автором — не трогаем.
             continue
-        shot.prompt = (
-            f"{shot.description}. {bible} {bans}. "
-            "clean modern image, vertical 9:16, no text overlay, no watermark, no logo."
-        )
+        shot.prompt = f"{shot.description}. {bans}. {brand.IMAGE_PROMPT_TAIL}."
     video.status = VideoStatus.PROMPTS
     audit(session, video, "prompts")
     session.commit()

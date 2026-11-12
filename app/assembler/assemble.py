@@ -7,6 +7,7 @@ import subprocess
 import textwrap
 from pathlib import Path
 
+from app import brand
 from app.assembler.ffmpeg import ffmpeg_bin, ffprobe_bin
 
 
@@ -35,10 +36,14 @@ def _duration(path: Path) -> float:
         return 0.0
 
 
-def _font_option() -> str:
-    """Шрифт с кириллицей для текстовых кадров. Без него FFmpeg на Windows не может нарисовать текст."""
+def _font_option(kind: str = "text") -> str:
+    """Фирменный шрифт с кириллицей. kind="heading" даёт PT Serif для заголовков, иначе Golos Text.
+    Без явного шрифта FFmpeg на Windows не может нарисовать текст."""
+    fonts = Path(__file__).resolve().parents[2] / "data" / "fonts"
     candidates = [
-        Path(__file__).resolve().parents[2] / "data" / "fonts" / "DejaVuSans.ttf",
+        fonts / (brand.HEADING_FONT_FILE if kind == "heading" else brand.TEXT_FONT_FILE),
+        fonts / brand.TEXT_FONT_FILE,
+        fonts / "DejaVuSans.ttf",
         Path(r"C:\Windows\Fonts\arial.ttf"),
         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
     ]
@@ -151,7 +156,7 @@ def _prepare_shot(shot: dict, index: int, dest: Path, w: int, h: int, fps: int) 
         text_file = dest.with_suffix(".txt")
         text_file.write_text(wrapped, encoding="utf-8")
         text_arg = text_file.resolve().as_posix().replace(":", r"\:")
-        font = _font_option()
+        font = _font_option("heading")
         _run(
             [
                 ffmpeg_bin(),
@@ -159,9 +164,9 @@ def _prepare_shot(shot: dict, index: int, dest: Path, w: int, h: int, fps: int) 
                 "-f",
                 "lavfi",
                 "-i",
-                f"color=c=0x0b0f14:s={w}x{h}:d={duration}:r={fps}",
+                f"color=c={brand.ff(brand.BG)}:s={w}x{h}:d={duration}:r={fps}",
                 "-vf",
-                f"drawtext={font}textfile='{text_arg}':expansion=none:fontcolor=white:fontsize=56:line_spacing=18:x=(w-text_w)/2:y=(h-text_h)/2",
+                f"drawtext={font}textfile='{text_arg}':expansion=none:fontcolor={brand.ff(brand.INK)}:fontsize=60:line_spacing=20:x=(w-text_w)/2:y=(h-text_h)/2",
                 "-c:v",
                 "libx264",
                 "-pix_fmt",
@@ -263,8 +268,8 @@ def _prepare_outro(shot: dict, index: int, dest: Path, w: int, h: int, fps: int,
         text_file.write_text(text, encoding="utf-8")
         arg = text_file.resolve().as_posix().replace(":", r"\:")
         vf += (
-            f",drawtext={_font_option()}textfile='{arg}':expansion=none:fontcolor=white:fontsize=60:"
-            "box=1:boxcolor=black@0.45:boxborderw=24:x=(w-text_w)/2:y=h*0.78"
+            f",drawtext={_font_option("heading")}textfile='{arg}':expansion=none:fontcolor={brand.ff(brand.INK)}:fontsize=60:"
+            f"box=1:boxcolor={brand.ff(brand.BG)}@0.92:boxborderw=24:x=(w-text_w)/2:y=h*0.78"
         )
     _run(
         [
@@ -340,8 +345,8 @@ def _mix_audio(sheet: dict, video: Path, dest: Path, work_dir: Path) -> None:
 
 def _write_ass(sheet: dict, dest: Path) -> None:
     style = (
-        "Style: Default,DejaVu Sans,42,&H00FFFFFF,&H000000FF,&H64000000,&H00000000,"
-        "0,0,0,0,100,100,0,0,1,2,0,2,40,40,160,1"
+        f"Style: Default,{brand.TEXT_FONT},46,{brand.ass(brand.CARD)},&H000000FF,{brand.ass(brand.INK)},&H00000000,"
+        "1,0,0,0,100,100,0,0,1,3,0,2,40,40,160,1"
     )
     lines = [
         "[Script Info]",
@@ -353,7 +358,7 @@ def _write_ass(sheet: dict, dest: Path) -> None:
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
         style,
-        "Style: Badge,DejaVu Sans,34,&H00FFFFFF,&H000000FF,&H00000000,&H96000000,"
+        f"Style: Badge,{brand.TEXT_FONT},34,{brand.ass(brand.CARD)},&H000000FF,{brand.ass(brand.ACCENT)},&H00000000,"
         "1,0,0,0,100,100,0,0,3,10,0,8,40,40,90,1",
         "",
         "[Events]",
