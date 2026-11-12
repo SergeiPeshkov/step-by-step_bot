@@ -98,8 +98,8 @@ class Settings(BaseSettings):
     music_dir: Path = ROOT / "data" / "music"
     ritual_dir: Path = ROOT / "data" / "rituals"
     font_path: Path = (
-        ROOT / "data" / "fonts" / "DejaVuSans.ttf"
-        if (ROOT / "data" / "fonts" / "DejaVuSans.ttf").exists()
+        ROOT / "data" / "fonts" / "GolosText.ttf"
+        if (ROOT / "data" / "fonts" / "GolosText.ttf").exists()
         else Path(r"C:\Windows\Fonts\arial.ttf")
     )
     max_video_shots: int = 1
